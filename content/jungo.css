@@ -1,0 +1,128 @@
+body{
+    background-color: yellowgreen;
+}
+
+.grid{
+    display: none;
+    grid-template-columns: repeat(3,330px);
+    grid-template-rows: repeat(2,320px);
+    column-gap: 10px;
+    row-gap: 10px;
+}
+
+#board{
+    grid-column-start: 2; 
+    grid-row-start: 1; 
+    background-color: #eee;
+    border: solid #333 2px;
+    border-collapse: collapse;
+    border-spacing: 0;
+}
+
+#board td{
+    width: 60px;
+    height: 60px;
+    border: solid #333 2px;
+    background-color: #b7d7e8;
+}
+
+img {
+    width: 60px;
+    height: 60px;
+    vertical-align: bottom;
+}
+
+#black_piece_table {
+    grid-column-start: 3;
+    grid-row-start: 1;
+    border-collapse: collapse;
+    border-spacing: 0;
+}
+
+#turn {
+    grid-column-start: 3;
+    grid-row-start: 2;
+    border: solid #333 2px;
+    font-size: 60px;
+    font-weight: bold;
+    background-color: #333;
+    color: #eee;
+    position: relative;
+}
+
+#turn > p{
+    text-align: center;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100%;
+    margin: auto;
+    transform: translateY(-50%) translateX(-50%);
+}
+
+#white_piece_table {
+    grid-column-start: 1;
+    grid-row-start: 1;
+    border-collapse: collapse;
+    border-spacing: 0;
+}
+
+#black_piece_table td{
+    width: 60px;
+    height: 60px;
+    border: solid #eee 2px;
+    background-color:#333;
+    color:#eee;
+}
+
+#white_piece_table td{
+    width: 60px;
+    height: 60px;
+    border: solid #333 2px;
+    background-color: #eee;
+}
+
+.selected{
+    background-color: #b7d7e8 !important;
+}
+
+.next_game_button{
+    grid-column-start: 1;
+    grid-row-start: 2;
+    font-size: 55px;
+    color: blue;
+    border:solid;
+    border-color:#333;
+    display:none;
+}
+
+#deck{
+    grid-column-start: 2;
+    grid-row-start: 2;
+    border: solid #333 2px;
+    background-color: #b7d7e8;
+    padding: 5px
+}
+
+#deck > img{
+    margin: 1.2px
+}
+
+.noPieces{
+    opacity: 0.3;
+}
+
+.matchingButtonWrapper{
+	text-align:center;
+}
+
+/*
+iphoneXのコスプレ
+html, body {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(45deg, #333, blue);
+}*/
