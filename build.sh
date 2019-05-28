@@ -1,2 +1,2 @@
-docker build -t jyungo .
+docker build -t jungo .
 

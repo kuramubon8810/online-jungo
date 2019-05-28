@@ -7,12 +7,17 @@ import(
 	"github.com/gorilla/websocket"
 )
 
+type client struct {
+	status string
+	channel chan string
+}
+
 var upgrader = websocket.Upgrader{
 	ReadBufferSize: 1024,
 	WriteBufferSize: 1024,
 }
 
-var clients = make(map[*websocket.Conn]string)
+var clients = make(map[*websocket.Conn]*client)
 var gameroom = make([][]*websocket.Conn, 0)  //[[black, white], [black, white]]
 
 func main(){
@@ -34,37 +39,37 @@ func serveWs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	go receiveStatus(conn)
-	clients[conn] = "wating"
+	clients[conn] = &client{
+		"wating",
+		make(chan string),
+	}
 	log.Println("connected")
 }
 
 func echo() {
 	for{
 		matchingClient := make([]*websocket.Conn, 0)
-		for client, status := range clients {
-			err := client.WriteMessage(websocket.TextMessage, []byte("ping"))
+		for ws, property := range clients {
+			err := ws.WriteMessage(websocket.TextMessage, []byte("ping"))
 
 			if err != nil {
 				log.Printf("websocket error: %s", err)
-				client.Close()
-				delete(clients, client)
+				ws.Close()
+				delete(clients, ws)
 				break
 			}
 
 
-			if status == "matching"{
-				matchingClient = append(matchingClient, client)
+			if property.status == "matching"{
+				matchingClient = append(matchingClient, ws)
 			}
 
-			log.Println(status)
+			log.Println(property.status)
 		}
 
 		for i := 0; (i + 1) * 2 <= len(matchingClient); i++ {  //<-+1してるのは1人のときに通ってしまうため(他にいい方法ありそう)
 			black := matchingClient[i * 2]
 			white := matchingClient[i * 2 + 1]
-			gameroom = append(gameroom,[][]*websocket.Conn{{black, white}}...)  //<-このゲームは2人対戦なため
-			clients[black] = "playing"
-			clients[white] = "playing"
 
 			err := black.WriteMessage(websocket.TextMessage, []byte("matched!"))
 			if err != nil {
@@ -80,6 +85,11 @@ func echo() {
 				delete(clients, white)
 			}
 
+			gameroom = append(gameroom,[][]*websocket.Conn{{black, white}}...)  //<-このゲームは2人対戦なため
+			clients[black].status = "playing"
+			clients[black].channel <- "close"
+			clients[white].status = "playing"
+			clients[white].channel <- "close"
 			log.Println(gameroom)
 		}
 		time.Sleep(1 * time.Second)
@@ -87,17 +97,23 @@ func echo() {
 }
 
 func receiveStatus(c *websocket.Conn) {
+	ch := clients[c].channel
 	for{
-		_, message, err := c.ReadMessage()
-		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("error: %v", err)
+		select{
+		case <- ch:
+			return
+		default :
+			_, message, err := c.ReadMessage()
+			if err != nil {
+				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+					log.Printf("error: %v", err)
+				}
+				break
 			}
-			break
+			if(string(message) == "matching") {
+				clients[c].status = "matching"
+			}
+			log.Printf("%s", message)
 		}
-		if(string(message) == "matching") {
-			clients[c] = "matching"
-		}
-		log.Printf("%s", message)
 	}
 }
