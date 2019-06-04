@@ -9,7 +9,7 @@ import(
 
 type client struct {
 	status string
-	channel chan string
+	chanel chan bool
 }
 
 var upgrader = websocket.Upgrader{
@@ -38,11 +38,12 @@ func serveWs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	go receiveStatus(conn)
 	clients[conn] = &client{
 		"wating",
-		make(chan string),
+		make(chan bool),
 	}
+
+	go receiveStatus(conn)
 	log.Println("connected")
 }
 
@@ -71,14 +72,14 @@ func echo() {
 			black := matchingClient[i * 2]
 			white := matchingClient[i * 2 + 1]
 
-			err := black.WriteMessage(websocket.TextMessage, []byte("matched!"))
+			err := black.WriteMessage(websocket.TextMessage, []byte("matched!\nblack"))
 			if err != nil {
 				log.Printf("can not send to websocket: %s", err)
 				black.Close()
 				delete(clients, black)
 			}
 
-			err = white.WriteMessage(websocket.TextMessage, []byte("matched!"))
+			err = white.WriteMessage(websocket.TextMessage, []byte("matched!\nwhite"))
 			if err != nil {
 				log.Printf("can not send to websocet: %s", err)
 				white.Close()
@@ -86,34 +87,50 @@ func echo() {
 			}
 
 			gameroom = append(gameroom,[][]*websocket.Conn{{black, white}}...)  //<-このゲームは2人対戦なため
+			go gameprocess(len(gameroom) - 1)
 			clients[black].status = "playing"
-			clients[black].channel <- "close"
+			clients[black].chanel <- true
 			clients[white].status = "playing"
-			clients[white].channel <- "close"
+			clients[white].chanel <- true
 			log.Println(gameroom)
 		}
 		time.Sleep(1 * time.Second)
 	}
 }
 
-func receiveStatus(c *websocket.Conn) {
-	ch := clients[c].channel
+func receiveStatus(c *websocket.Conn) {	
 	for{
-		select{
-		case <- ch:
-			return
-		default :
-			_, message, err := c.ReadMessage()
-			if err != nil {
-				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-					log.Printf("error: %v", err)
-				}
-				break
+		_, message, err := c.ReadMessage()
+		if err != nil {
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				log.Printf("error: %v", err)
 			}
-			if(string(message) == "matching") {
-				clients[c].status = "matching"
+			break
+		}
+
+		if string(message) == "matching" {
+			clients[c].status = "matching"
+			end := <-clients[c].chanel
+			if end == true {
+				return
 			}
-			log.Printf("%s", message)
+		}
+		log.Printf("%s", message)
+	}
+}
+
+func gameprocess(i int) {
+	log.Println(gameroom[i])
+	isBlackTurn := true
+	black := gameroom[i][0]
+	white := gameroom[i][1]
+	for {
+		if isBlackTurn == true {
+			_, message, _ := black.ReadMessage()
+			white.WriteMessage(websocket.TextMessage, []byte(message))
+		} else {
+			_, message, _ := white.ReadMessage()
+			black.WriteMessage(websocket.TextMessage, []byte(message))
 		}
 	}
 }
