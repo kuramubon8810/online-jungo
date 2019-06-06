@@ -82,45 +82,7 @@ let clicked_board = (e) => {
 
 			--deck[now_num - 1];
 			if (deck[4] == 0) { //5が山札からなくなったか
-				for (let y = 0; y < BOARD_SIZE; ++y) {
-					for (let x = 0; x < BOARD_SIZE; ++x) {
-						document.getElementById(`${y + 1}_${x + 1}`).removeEventListener("click", clicked_board, false);
-						document.getElementById(`${y + 1}_${x + 1}`).addEventListener("click", clicked_board_no_deck, false);
-					};
-				};
-
-				for (let y = 0; y < 2; ++y) {
-					for (let x = 0; x < 3; ++x) {
-						if (y * 3 + x + 1 != 6) {
-							document.getElementById(`${y * 3 + x + 1}_black_storage`).addEventListener("click", select_piece_process, false);
-							document.getElementById(`${y * 3 + x + 1}_white_storage`).addEventListener("click", select_piece_process, false)
-						};
-					};
-				};
-
-				if (!check_next_turn(numberCalculation(now_put_piece_number + 1))) {
-					if (is_black_turn) {
-						alert(`後手が${numberCalculation(now_put_piece_number + 1)}を持っていません`);
-						alert("先手の勝ちです");
-						gameend_process("先手");
-						insertion_array_data_to_board();
-						insertion_array_data_to_piece_table();
-						insertion_array_data_to_deck();
-
-						document.getElementById("next_game_button").style.display = "block"
-						return;
-					} else {
-						alert(`先手が${numberCalculation(now_put_piece_number + 1)}を持っていません`);
-						alert("後手の勝ちです");
-						gameend_process("後手");
-						insertion_array_data_to_board();
-						insertion_array_data_to_piece_table();
-						insertion_array_data_to_deck();
-
-						document.getElementById("next_game_button").style.display = "block"
-						return;
-					}
-				}
+				change_to_use_piece_table();
 			}
 
 			++now_put_piece_number;
@@ -130,7 +92,7 @@ let clicked_board = (e) => {
 			insertion_array_data_to_deck();
 			change_turn_display();
 
-			let toServerMessage = 
+			let toServerMessage =
 				JSON.stringify({
 					"piece_id": piece_id,
 					"board_status_array": board_status_array,
@@ -181,48 +143,32 @@ let clicked_board_no_deck = (e) => {
 				};
 
 				if (!check_next_turn(numberCalculation(now_put_piece_number + 1))) {
-					if (is_black_turn) {
-						alert(`後手が${numberCalculation(now_put_piece_number + 1)}を持っていません`);
-						alert("先手の勝ちです");
-						gameend_process("先手");
-						insertion_array_data_to_board();
-						insertion_array_data_to_piece_table();
-
-						document.getElementsByClassName("selected")[0].classList.remove("selected");
-						document.getElementById("next_game_button").style.display = "block"
-						return;
-					} else {
-						alert(`先手が${numberCalculation(now_put_piece_number + 1)}を持っていません`);
-						alert("後手の勝ちです");
-						gameend_process("後手");
-						insertion_array_data_to_board();
-						insertion_array_data_to_piece_table();
-
-						let toServerMessage = 
-							JSON.stringify({
-								"piece_id": piece_id,
-								"board_status_array": board_status_array,
-								"deck": deck,
-								"black_pieces": black_pieces,
-								"white_pieces": white_pieces
-							});
-
-						console.log(toServerMessage);
-						websocket.send(toServerMessage);
-
-						document.getElementsByClassName("selected")[0].classList.remove("selected");
-						document.getElementById("next_game_button").style.display = "block"
-						return;
-					};
+					gameend_process();
 				};
 
 				++now_put_piece_number;
 				is_black_turn = !is_black_turn;
 				selected_took_piece = false;
-				document.getElementsByClassName("selected")[0].classList.remove("selected");
 				insertion_array_data_to_board();
 				insertion_array_data_to_piece_table();
 				change_turn_display();
+
+
+				let toServerMessage =
+					JSON.stringify({
+						"piece_id": piece_id,
+						"board_status_array": board_status_array,
+						"deck": deck,
+						"black_pieces": black_pieces,
+						"white_pieces": white_pieces
+					});
+
+				console.log(toServerMessage);
+				websocket.send(toServerMessage);
+
+				document.getElementsByClassName("selected")[0].classList.remove("selected");
+				document.getElementById("next_game_button").style.display = "block"
+				return;
 			} else {
 				alert(`今は${now_num}を置くターンです`);
 				selected_took_piece = false;
@@ -408,6 +354,27 @@ function check_next_turn(next_num) {
 	};
 };
 
+function change_to_use_piece_table() {
+	for (let y = 0; y < BOARD_SIZE; ++y) {
+		for (let x = 0; x < BOARD_SIZE; ++x) {
+			document.getElementById(`${y + 1}_${x + 1}`).removeEventListener("click", clicked_board, false);
+			document.getElementById(`${y + 1}_${x + 1}`).addEventListener("click", clicked_board_no_deck, false);
+		};
+	};
+
+	for (let y = 0; y < 2; ++y) {
+		for (let x = 0; x < 3; ++x) {
+			if (y * 3 + x + 1 != 6) {
+				document.getElementById(`${y * 3 + x + 1}_black_storage`).addEventListener("click", select_piece_process, false);
+				document.getElementById(`${y * 3 + x + 1}_white_storage`).addEventListener("click", select_piece_process, false)
+			};
+		};
+	};
+
+	if (!check_next_turn(numberCalculation(now_put_piece_number + 1))) {
+		gameend_process();
+	}
+}
 
 function change_turn_display() {
 	if (is_black_turn) {
@@ -429,7 +396,39 @@ function numberCalculation(num) {
 	};
 };
 
-function gameend_process(winner) {
+function gameend_process() {
+	if (is_black_turn) {
+		alert(`後手が${numberCalculation(now_put_piece_number + 1)}を持っていません`);
+		alert("先手の勝ちです");
+
+		document.getElementById("turn").style.color = "#eee";
+		document.getElementById("turn").style.backgroundColor = "#87bdd8";
+		document.getElementById("turn").firstChild.innerHTML = "勝者:先手";
+		document.getElementById("next_game_button").style.display = "block"
+
+		remove_all_event();
+		insertion_array_data_to_board();
+		insertion_array_data_to_piece_table();
+		insertion_array_data_to_deck();
+		return;
+	} else {
+		alert(`先手が${numberCalculation(now_put_piece_number + 1)}を持っていません`);
+		alert("後手の勝ちです");
+
+		document.getElementById("turn").style.color = "#eee";
+		document.getElementById("turn").style.backgroundColor = "#87bdd8";
+		document.getElementById("turn").firstChild.innerHTML = "勝者:後手";
+		document.getElementById("next_game_button").style.display = "block"
+
+		remove_all_event();
+		insertion_array_data_to_board();
+		insertion_array_data_to_piece_table();
+		insertion_array_data_to_deck();
+		return;
+	}
+}
+
+function remove_all_event() {
 	for (let y = 0; y < BOARD_SIZE; ++y) {
 		for (let x = 0; x < BOARD_SIZE; ++x) {
 			document.getElementById(`${y + 1}_${x + 1}`).removeEventListener("click", clicked_board_no_deck, false);
@@ -444,10 +443,6 @@ function gameend_process(winner) {
 			};
 		};
 	};
-
-	document.getElementById("turn").style.color = "#eee";
-	document.getElementById("turn").style.backgroundColor = "#87bdd8";
-	document.getElementById("turn").firstChild.innerHTML = `勝者:${winner}`;
 };
 
 function next_game_process() {
@@ -566,23 +561,26 @@ function create_piece_table() {
 	insertion_array_data_to_piece_table();
 };
 
-function matching(){
+function matching() {
 	websocket.send("matching");
-	websocket.onmessage = function(evt) {
+	websocket.onmessage = function (evt) {
 		if (is_player_turn_of_black == "") {
 			let message = evt.data.split("\n")
 
-			if(message[0] == "matched!") {
+			if (message[0] == "matched!") {
 				console.log(message)
-				if(message[1] == "black") {
+				if (message[1] == "black") {
 					is_player_turn_of_black = true
-				} else if(message[1] == "white") {
+				} else if (message[1] == "white") {
 					is_player_turn_of_black = false
 				}
 
-				websocket.onmessage = function(evt) {
+				websocket.onmessage = function (evt) {
 					if (is_player_turn_of_black != is_black_turn && evt.data != "ping") {
-						let message = JSON.parse(evt.data)
+						let message = JSON.parse(evt.data);
+						//let now_board_status_array = JSON.parse(JSON.stringify(board_status_array));
+
+						docuemnt.getElementById(message.piece_id).click();
 						is_black_turn = !is_black_turn
 						console.log(message)
 					}
