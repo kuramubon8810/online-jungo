@@ -1,7 +1,7 @@
 'use strict';
-const websocket = new WebSocket("ws://localhost:9090/ws")
+//const WEBSOCKET = new WebSocket("ws://localhost:9090/ws");
 const BOARD_SIZE = 5;
-const DIRECTION = ["up", "left", "right", "down"];
+const DIRECTION = ["up", "left", "right", "down"]
 DIRECTION["up"] = {
 	y: -1,
 	x: 0
@@ -19,22 +19,20 @@ DIRECTION["down"] = {
 	x: 0
 }
 
-let now_put_piece_number = 1;
-let is_black_turn = true;
-let is_player_turn_of_black = "";
-let selected_took_piece = false;
-let select_took_piece_data = {};
-let board_status_array = [];
-let can_put_position_osero_rule = [];
-let can_take_piece_go_rule_array = [];
+let nowPutPieceNumber = 1;
+let isBlackTurn = true;
+let isPlayerTurnOfBlack = "";
+let selectedTookPiece = false;
+let selectTookPieceData = {}
+let nowBoardStatusArray = []
 //それぞれの数字の枚数の配列 配列での位置と一つずつずれている 0番目->1 1番目->2 ...
-let deck = [5, 5, 5, 5, 5];
-let black_pieces = [0, 0, 0, 0, 0];
-let white_pieces = [0, 0, 0, 0, 0];
+let deck = [5, 5, 5, 5, 5]
+let blackPieces = [0, 0, 0, 0, 0]
+let whitePieces = [0, 0, 0, 0, 0]
 
-function create_board_array() {
+function createBoardArray() {
 	for (let y = 0; y <= BOARD_SIZE + 1; ++y) {
-		let line = [];
+		let line = []
 		for (let x = 0; x <= BOARD_SIZE + 1; ++x) {
 			switch (y) {
 				case 0:
@@ -53,225 +51,237 @@ function create_board_array() {
 					}
 			}
 		}
-		board_status_array.push(line);
+		nowBoardStatusArray.push(line);
 	}
 }
 
-let clicked_board = (e) => {
-	let piece_id = e.target.id || e.target.parentElement.id;
-	let piece_coordinate = {
-		y: parseInt(piece_id.slice(0, 1)),
-		x: parseInt(piece_id.slice(2, 3))
-	};
+let clickedBoard = (e) => {
+	let pieceId = e.target.id || e.target.parentElement.id;
+	let pieceCoordinate = {
+		y: parseInt(pieceId.slice(0, 1)),
+		x: parseInt(pieceId.slice(2, 3))
+	}
 
-	if (is_black_turn == is_player_turn_of_black) {
-		if (board_status_array[piece_coordinate.y][piece_coordinate.x] == "space") {
-			let now_num = numberCalculation(now_put_piece_number);
+	//if (isBlackTurn == isPlayerTurnOfBlack) {
+	if (nowBoardStatusArray[pieceCoordinate.y][pieceCoordinate.x] == "space") {
+		let nowNum = numberCalculation(nowPutPieceNumber);
+		nowBoardStatusArray[pieceCoordinate.y][pieceCoordinate.x] = `${nowNum}`;
+		let returnValues = ifCanPutInsertionToArray(nowBoardStatusArray, nowNum, pieceCoordinate);
 
-			board_status_array[piece_coordinate.y][piece_coordinate.x] = `${now_num}`;
-			search_enemy_osero_rule(now_num, piece_coordinate);
-			search_enemy_go_rule(now_num, piece_coordinate);
+		nowBoardStatusArray = returnValues.nextTurnBoardStatusArray;
+		for (let i = 0; i < blackPieces.length; ++i) {  //黒と白の持ち駒の数は1～5で変わらないためとりあえず黒の長さ
+			blackPieces[i] += returnValues.blackPieces[i];
+			whitePieces[i] += returnValues.whitePieces[i];
+		}
 
-			if (can_put_position_osero_rule.length) {
-				take_piece_osero_rule(now_num, piece_coordinate);
-			};
+		--deck[nowNum - 1];
+		if (deck[4] == 0) { //5が山札からなくなったか
+			changeToUsePieceTable();
+		}
 
-			if (can_take_piece_go_rule_array.length) {
-				take_piece_go_rule();
-			};
+		++nowPutPieceNumber;
+		isBlackTurn = !isBlackTurn;
+		insertionArrayDataToBoard();
+		insertionArrayDataToPieceTable();
+		insertionArrayDataToDeck();
+		changeTurnDisplay();
 
-			--deck[now_num - 1];
-			if (deck[4] == 0) { //5が山札からなくなったか
-				change_to_use_piece_table();
+		/*let toServerMessage =
+			JSON.stringify({
+				"pieceId": pieceId,
+				"nowBoardStatusArray": nowBoardStatusArray,
+				"deck": deck,
+				"blackPieces": blackPieces,
+				"whitePieces": whitePieces
+			});
+
+		console.log(toServerMessage);
+		websocket.send(toServerMessage);*/
+	}
+	//}
+};
+
+let clicedBoardNoDeck = (e) => {
+	let pieceId = e.target.id || e.target.parentElement.id;
+	let pieceCoordinate = {
+		y: parseInt(pieceId.slice(0, 1)),
+		x: parseInt(pieceId.slice(2, 3))
+	}
+
+	//if (isBlackTurn == isPlayerTurnOfBlack) {
+	if (nowBoardStatusArray[pieceCoordinate.y][pieceCoordinate.x] == "space" && selectedTookPiece) {
+		let nowNum = numberCalculation(nowPutPieceNumber);
+
+		if (selectTookPieceData.number == nowNum) {
+			if (isBlackTurn && selectTookPieceData.owner == "black") {
+				--blackPieces[nowNum - 1];
+			} else if (!isBlackTurn && selectTookPieceData.owner == "white") {
+				--whitePieces[nowNum - 1];
+			} else {
+				alert("それは敵の駒です");
+				selectedTookPiece = false;
+				document.getElementsByClassName("selected")[0].classList.remove("selected");
+				return;
 			}
 
-			++now_put_piece_number;
-			is_black_turn = !is_black_turn;
-			insertion_array_data_to_board();
-			insertion_array_data_to_piece_table();
-			insertion_array_data_to_deck();
-			change_turn_display();
+			nowBoardStatusArray[pieceCoordinate.y][pieceCoordinate.x] = `${nowNum}`;
 
-			let toServerMessage =
+			let returnValues = ifCanPutInsertionToArray(nowBoardStatusArray, nowNum, pieceCoordinate);
+
+			nowBoardStatusArray = returnValues.nextTurnBoardStatusArray;
+
+			for (let i = 0; i < blackPieces.length; ++i) {  //黒と白の持ち駒の数は1～5で変わらないためとりあえず黒の長さ
+				blackPieces[i] += returnValues.blackPieces[i];
+				whitePieces[i] += returnValues.whitePieces[i];
+			}
+
+			if (!checkNextTurn(numberCalculation(nowPutPieceNumber + 1))) {
+				gameEndProcess();
+			}
+
+			++nowPutPieceNumber;
+			isBlackTurn = !isBlackTurn;
+			selectedTookPiece = false;
+			insertionArrayDataToBoard();
+			insertionArrayDataToPieceTable();
+			changeTurnDisplay();
+
+
+			/*let toServerMessage =
 				JSON.stringify({
-					"piece_id": piece_id,
-					"board_status_array": board_status_array,
+					"pieceId": pieceId,
+					"nowBoardStatusArray": nowBoardStatusArray,
 					"deck": deck,
-					"black_pieces": black_pieces,
-					"white_pieces": white_pieces
+					"blackPieces": blackPieces,
+					"whitePieces": whitePieces
 				});
 
 			console.log(toServerMessage);
 			websocket.send(toServerMessage);
+			*/
+			document.getElementsByClassName("selected")[0].classList.remove("selected");
+			//document.getElementById("next-game-button").style.display = "block"
+		} else {
+			alert(`今は${nowNum}を置くターンです`);
+			selectedTookPiece = false;
+			document.getElementsByClassName("selected")[0].classList.remove("selected");
 		}
 	}
-}
+	//}
+};
 
-let clicked_board_no_deck = (e) => {
-	let piece_id = e.target.id || e.target.parentElement.id;
-	let piece_coordinate = {
-		y: parseInt(piece_id.slice(0, 1)),
-		x: parseInt(piece_id.slice(2, 3))
-	};
-
-	if (is_black_turn == is_player_turn_of_black) {
-		if (board_status_array[piece_coordinate.y][piece_coordinate.x] == "space" && selected_took_piece) {
-			let now_num = numberCalculation(now_put_piece_number);
-
-			if (select_took_piece_data.number == now_num) {
-				if (is_black_turn && select_took_piece_data.owner == "black") {
-					--black_pieces[now_num - 1];
-				} else if (!is_black_turn && select_took_piece_data.owner == "white") {
-					--white_pieces[now_num - 1];
-				} else {
-					alert("それは敵の駒です");
-					selected_took_piece = false;
-					document.getElementsByClassName("selected")[0].classList.remove("selected");
-					return;
-				};
-
-				board_status_array[piece_coordinate.y][piece_coordinate.x] = `${now_num}`;
-				search_enemy_osero_rule(now_num, piece_coordinate);
-				search_enemy_go_rule(now_num, piece_coordinate);
-
-				if (can_put_position_osero_rule.length) {
-					take_piece_osero_rule(now_num, piece_coordinate);
-				};
-
-				if (can_take_piece_go_rule_array.length) {
-					take_piece_go_rule();
-				};
-
-				if (!check_next_turn(numberCalculation(now_put_piece_number + 1))) {
-					gameend_process();
-				};
-
-				++now_put_piece_number;
-				is_black_turn = !is_black_turn;
-				selected_took_piece = false;
-				insertion_array_data_to_board();
-				insertion_array_data_to_piece_table();
-				change_turn_display();
-
-
-				let toServerMessage =
-					JSON.stringify({
-						"piece_id": piece_id,
-						"board_status_array": board_status_array,
-						"deck": deck,
-						"black_pieces": black_pieces,
-						"white_pieces": white_pieces
-					});
-
-				console.log(toServerMessage);
-				websocket.send(toServerMessage);
-
-				document.getElementsByClassName("selected")[0].classList.remove("selected");
-				document.getElementById("next_game_button").style.display = "block"
-				return;
-			} else {
-				alert(`今は${now_num}を置くターンです`);
-				selected_took_piece = false;
-				document.getElementsByClassName("selected")[0].classList.remove("selected");
-			}
-		}
+let selectPieceProcess = (e) => {
+	let pieceId = e.target.id || e.target.parentElement.id;
+	selectTookPieceData = {
+		number: pieceId.slice(0, 1),
+		owner: pieceId.slice(2, 7)
 	}
-}
 
-let select_piece_process = (e) => {
-	let piece_id = e.target.id || e.target.parentElement.id;
-	select_took_piece_data = {
-		number: piece_id.slice(0, 1),
-		owner: piece_id.slice(2, 7)
-	};
-
-	if (selected_took_piece) {
+	if (selectedTookPiece) {
 		document.getElementsByClassName("selected")[0].classList.remove("selected");
 	} else {
-		document.getElementById(piece_id).classList.add("selected");
+		document.getElementById(pieceId).classList.add("selected");
 	}
-	selected_took_piece = !selected_took_piece;
+	selectedTookPiece = !selectedTookPiece;
 };
 
-function search_enemy_osero_rule(now_num, piece_coordinate) {
-	for (let y = piece_coordinate.y - 1; y <= piece_coordinate.y + 1; ++y) {
-		for (let x = piece_coordinate.x - 1; x <= piece_coordinate.x + 1; ++x) {
-			let y_DIRECTION = y - piece_coordinate.y;
-			let x_DIRECTION = x - piece_coordinate.x;
+function ifCanPutInsertionToArray(nowBoardStatusArray, nowNum, pieceCoordinate) {
+	let nextTurnBoardStatusArray = JSON.parse(JSON.stringify(nowBoardStatusArray));
+	nextTurnBoardStatusArray[pieceCoordinate.y][pieceCoordinate.x] = `${nowNum}`;
+	let returnValues = takePieceOseroRule(nowNum, pieceCoordinate, nextTurnBoardStatusArray);
+	let tempReturnValues = takePieceGoRule(nowNum, pieceCoordinate, returnValues.nextTurnBoardStatusArray);
+
+	returnValues.nextTurnBoardStatusArray = tempReturnValues.nextTurnBoardStatusArray;
+	for (let i = 0; i < blackPieces.length; ++i) {  //黒と白の持ち駒の数は1～5で変わらないためとりあえず黒の長さ
+		returnValues.blackPieces[i] += tempReturnValues.blackPieces[i];
+		returnValues.whitePieces[i] += tempReturnValues.whitePieces[i];
+	}
+	return returnValues
+}
+
+function searchEnemyOseroRule(nowNum, pieceCoordinate, boardStatusArray) {
+	let canPutPositionOseroRule = []
+	for (let y = pieceCoordinate.y - 1; y <= pieceCoordinate.y + 1; ++y) {
+		for (let x = pieceCoordinate.x - 1; x <= pieceCoordinate.x + 1; ++x) {
+			let yDirection = y - pieceCoordinate.y;
+			let xDirection = x - pieceCoordinate.x;
 
 			if (
-				board_status_array[y][x] != now_num
-				&& board_status_array[y][x] != "space"
-				&& board_status_array[y][x] != "outzone"
+				boardStatusArray[y][x] != nowNum
+				&& boardStatusArray[y][x] != "space"
+				&& boardStatusArray[y][x] != "outzone"
 			) {
-				let search_position = {
+				let searchPosition = {
 					y: y,
 					x: x
-				};
-				let search_array_position = board_status_array[search_position.y][search_position.x]
+				}
+				let searchpieceData = boardStatusArray[searchPosition.y][searchPosition.x]
 
 				while (
-					search_array_position != now_num
-					&& search_array_position != "space"
-					&& search_array_position != "outzone"
+					searchpieceData != nowNum
+					&& searchpieceData != "space"
+					&& searchpieceData != "outzone"
 				) {
-					search_position = {
-						y: search_position.y + y_DIRECTION,
-						x: search_position.x + x_DIRECTION
-					};
-					search_array_position = board_status_array[search_position.y][search_position.x]
-				};
+					searchPosition = {
+						y: searchPosition.y + yDirection,
+						x: searchPosition.x + xDirection
+					}
+					searchpieceData = boardStatusArray[searchPosition.y][searchPosition.x]
+				}
 
-				if (board_status_array[search_position.y][search_position.x] == now_num) {
-					can_put_position_osero_rule.push(search_position);
-				};
-			};
-		};
-	};
-};
-
-function object_Calculation(piece_coordinate, DIRECTION) {
-	let temp = {
-		y: piece_coordinate.y + DIRECTION.y,
-		x: piece_coordinate.x + DIRECTION.x
-	};
-	return temp;
-};
-
-function can_take_piece_go_rule(now_num, piece_coordinate, searched_position, searching_group) {
-	for (let i = 0; i < DIRECTION.length; ++i) {
-		let position = object_Calculation(piece_coordinate, DIRECTION[DIRECTION[i]]);
-		let array_position = board_status_array[position.y][position.x];
-		if (array_position == "space") {
-			return true;
-		} else if (array_position != "outzone" && array_position != now_num) {
-			let piece_id = `${position.y}_${position.x}`;
-			if (!searched_position.includes(piece_id)) {
-				searched_position.push(piece_id);
-				if (can_take_piece_go_rule(now_num, position, searched_position, searching_group)) {
-					return true;
-				};
-			};
-		};
-	};
-	searching_group.push(piece_coordinate);
-	return false;
-};
-
-function search_enemy_go_rule(now_num, piece_coordinate) {
-	for (let i = 0; i < DIRECTION.length; ++i) {
-		let position = object_Calculation(piece_coordinate, DIRECTION[DIRECTION[i]]);
-		let array_position = board_status_array[position.y][position.x];
-		let searching_group = [];
-		let searched_position = [];
-		if (array_position != "space" && array_position != "outzone" && array_position != now_num) {
-			searched_position.push(`${position.y}_${position.x}`)
-			if (!can_take_piece_go_rule(now_num, position, searched_position, searching_group)) {
-				Array.prototype.push.apply(can_take_piece_go_rule_array, searching_group);
+				if (boardStatusArray[searchPosition.y][searchPosition.x] == nowNum) {
+					canPutPositionOseroRule.push(searchPosition);
+				}
 			}
-		};
-	};
-};
+		}
+	}
+	return canPutPositionOseroRule;
+}
+
+function objectCalculation(pieceCoordinate, DIRECTION) {
+	let temp = {
+		y: pieceCoordinate.y + DIRECTION.y,
+		x: pieceCoordinate.x + DIRECTION.x
+	}
+	return temp;
+}
+
+function searchBreathingPointEnemyGroup(nowNum, pieceCoordinate, searchedPosition, searchingGroup, boardStatusArray) {
+	for (let i = 0; i < DIRECTION.length; ++i) {
+		let piecePosition = objectCalculation(pieceCoordinate, DIRECTION[DIRECTION[i]]);
+		let pieceData = boardStatusArray[piecePosition.y][piecePosition.x];
+		if (pieceData == "space") {
+			return false;
+		} else if (pieceData != "outzone" && pieceData != nowNum) {
+			let pieceId = `${piecePosition.y}-${piecePosition.x}`;
+			if (!searchedPosition.includes(pieceId)) {
+				searchedPosition.push(pieceId);
+				if (!searchBreathingPointEnemyGroup(nowNum, piecePosition, searchedPosition, searchingGroup, boardStatusArray)) {
+					return false;
+				}
+			}
+		}
+	}
+	searchingGroup.push(pieceCoordinate);
+	return true;
+}
+
+function searchEnemyGoRule(nowNum, pieceCoordinate, boardStatusArray) {
+	let canPutPositionGoRule = []
+	let searchedPosition = []
+	let searchingGroup = []
+	for (let i = 0; i < DIRECTION.length; ++i) {
+		let piecePosition = objectCalculation(pieceCoordinate, DIRECTION[DIRECTION[i]]);
+		let pieceData = boardStatusArray[piecePosition.y][piecePosition.x];
+		if (pieceData != "space" && pieceData != "outzone" && pieceData != nowNum) {
+			searchedPosition.push(`${piecePosition.y}-${piecePosition.x}`)
+			if (searchBreathingPointEnemyGroup(nowNum, piecePosition, searchedPosition, searchingGroup, boardStatusArray)) {
+				Array.prototype.push.apply(canPutPositionGoRule, searchingGroup);
+			}
+		}
+	}
+	return canPutPositionGoRule;
+}
 
 //https://www.deep-rain.com/programming/javascript/755
 function objectSort(obj) {
@@ -279,7 +289,7 @@ function objectSort(obj) {
 	var keys = Object.keys(obj).sort();
 
 	// 返却する空のオブジェクトを作る
-	var map = {};
+	var map = {}
 
 	// ソート済みのキー順に返却用のオブジェクトに値を格納する
 	keys.forEach(function (key) {
@@ -288,300 +298,316 @@ function objectSort(obj) {
 	});
 
 	return map;
-};
+}
 
-function take_piece_osero_rule(now_num, piece_coordinate) {
-	for (let i = 0; i < can_put_position_osero_rule.length; ++i) {
-		let y_DIRECTION = (can_put_position_osero_rule[i].y - piece_coordinate.y) / Math.abs(can_put_position_osero_rule[i].y - piece_coordinate.y);
-		let x_DIRECTION = (can_put_position_osero_rule[i].x - piece_coordinate.x) / Math.abs(can_put_position_osero_rule[i].x - piece_coordinate.x);
-		let take_piece_position = {
-			x: piece_coordinate.x,
-			y: piece_coordinate.y
-		};
+function takePieceOseroRule(nowNum, pieceCoordinate, nextTurnBoardStatusArray) {
+	let blackPiecesDif = [0, 0, 0, 0, 0];
+	let whitePiecesDif = [0, 0, 0, 0, 0];
 
-		while (!(JSON.stringify(objectSort(can_put_position_osero_rule[i])) === JSON.stringify(objectSort(take_piece_position)))) {
-			let take_piece = board_status_array[take_piece_position.y][take_piece_position.x];
-			if (now_num != take_piece) {
-				if (is_black_turn) {
-					++black_pieces[parseInt(take_piece) - 1];
-					board_status_array[take_piece_position.y][take_piece_position.x] = "space";
+	let canPutPositionOseroRule = searchEnemyOseroRule(nowNum, pieceCoordinate, nextTurnBoardStatusArray);
+	for (let i = 0; i < canPutPositionOseroRule.length; ++i) {
+		let yDirection = (canPutPositionOseroRule[i].y - pieceCoordinate.y) / Math.abs(canPutPositionOseroRule[i].y - pieceCoordinate.y);
+		let xDirection = (canPutPositionOseroRule[i].x - pieceCoordinate.x) / Math.abs(canPutPositionOseroRule[i].x - pieceCoordinate.x);
+		let takePiecePosition = {
+			x: pieceCoordinate.x,
+			y: pieceCoordinate.y
+		}
+
+		while (!(JSON.stringify(objectSort(canPutPositionOseroRule[i])) === JSON.stringify(objectSort(takePiecePosition)))) {
+			let takePiece = nextTurnBoardStatusArray[takePiecePosition.y][takePiecePosition.x];
+			if (nowNum != takePiece) {
+				if (isBlackTurn) {
+					++blackPiecesDif[parseInt(takePiece) - 1];
+					nextTurnBoardStatusArray[takePiecePosition.y][takePiecePosition.x] = "space";
 				} else {
-					++white_pieces[parseInt(take_piece) - 1];
-					board_status_array[take_piece_position.y][take_piece_position.x] = "space";
-				};
-			};
+					++whitePiecesDif[parseInt(takePiece) - 1];
+					nextTurnBoardStatusArray[takePiecePosition.y][takePiecePosition.x] = "space";
+				}
+			}
 
-			if (y_DIRECTION) {
-				take_piece_position.y += y_DIRECTION;
+			if (yDirection) {
+				takePiecePosition.y += yDirection;
 			} else {
-				take_piece_position.y += 0;
-			};
+				takePiecePosition.y += 0;
+			}
 
-			if (x_DIRECTION) {
-				take_piece_position.x += x_DIRECTION;
+			if (xDirection) {
+				takePiecePosition.x += xDirection;
 			} else {
-				take_piece_position.x += 0;
-			};
-		};
-	};
-	can_put_position_osero_rule = [];
-};
+				takePiecePosition.x += 0;
+			}
+		}
+	}
 
-function take_piece_go_rule() {
-	for (let i = 0; i < can_take_piece_go_rule_array.length; ++i) {
-		let position = {
-			y: can_take_piece_go_rule_array[i].y,
-			x: can_take_piece_go_rule_array[i].x
-		};
-		if (board_status_array[position.y][position.x] != "space") {
-			if (is_black_turn) {
-				++black_pieces[parseInt(board_status_array[position.y][position.x]) - 1];
-				board_status_array[position.y][position.x] = "space";
+	return {
+		"nextTurnBoardStatusArray": nextTurnBoardStatusArray,
+		"blackPieces": blackPiecesDif,
+		"whitePieces": whitePiecesDif
+	}
+}
+
+function takePieceGoRule(nowNum, pieceCoordinate, nextTurnBoardStatusArray) {
+	let blackPiecesDif = [0, 0, 0, 0, 0];
+	let whitePiecesDif = [0, 0, 0, 0, 0];
+
+	let canPutPositionGoRule = searchEnemyGoRule(nowNum, pieceCoordinate, nextTurnBoardStatusArray);
+	for (let i = 0; i < canPutPositionGoRule.length; ++i) {
+		let piecePosition = {
+			y: canPutPositionGoRule[i].y,
+			x: canPutPositionGoRule[i].x
+		}
+		if (nextTurnBoardStatusArray[piecePosition.y][piecePosition.x] != "space") {
+			if (isBlackTurn) {
+				++blackPiecesDif[parseInt(nextTurnBoardStatusArray[piecePosition.y][piecePosition.x]) - 1];
+				nextTurnBoardStatusArray[piecePosition.y][piecePosition.x] = "space";
 			} else {
-				++white_pieces[parseInt(board_status_array[position.y][position.x]) - 1];
-				board_status_array[position.y][position.x] = "space";
-			};
-		};
-	};
-	can_take_piece_go_rule_array = [];
-};
+				++whitePiecesDif[parseInt(nextTurnBoardStatusArray[piecePosition.y][piecePosition.x]) - 1];
+				nextTurnBoardStatusArray[piecePosition.y][piecePosition.x] = "space";
+			}
+		}
+	}
 
-function check_next_turn(next_num) {
-	if (is_black_turn) {
-		return white_pieces[next_num - 1];
+	return {
+		"nextTurnBoardStatusArray": nextTurnBoardStatusArray,
+		"blackPieces": blackPiecesDif,
+		"whitePieces": whitePiecesDif
+	}
+}
+
+function checkNextTurn(nextNum) {
+	if (isBlackTurn) {
+		return whitePieces[nextNum - 1];
 	} else {
-		return black_pieces[next_num - 1];
-	};
-};
+		return blackPieces[nextNum - 1];
+	}
+}
 
-function change_to_use_piece_table() {
+function changeToUsePieceTable() {
 	for (let y = 0; y < BOARD_SIZE; ++y) {
 		for (let x = 0; x < BOARD_SIZE; ++x) {
-			document.getElementById(`${y + 1}_${x + 1}`).removeEventListener("click", clicked_board, false);
-			document.getElementById(`${y + 1}_${x + 1}`).addEventListener("click", clicked_board_no_deck, false);
-		};
-	};
+			document.getElementById(`${y + 1}-${x + 1}`).removeEventListener("click", clickedBoard, false);
+			document.getElementById(`${y + 1}-${x + 1}`).addEventListener("click", clicedBoardNoDeck, false);
+		}
+	}
 
 	for (let y = 0; y < 2; ++y) {
 		for (let x = 0; x < 3; ++x) {
 			if (y * 3 + x + 1 != 6) {
-				document.getElementById(`${y * 3 + x + 1}_black_storage`).addEventListener("click", select_piece_process, false);
-				document.getElementById(`${y * 3 + x + 1}_white_storage`).addEventListener("click", select_piece_process, false)
-			};
-		};
-	};
+				document.getElementById(`${y * 3 + x + 1}-black-storage`).addEventListener("click", selectPieceProcess, false);
+				document.getElementById(`${y * 3 + x + 1}-white-storage`).addEventListener("click", selectPieceProcess, false)
+			}
+		}
+	}
 
-	if (!check_next_turn(numberCalculation(now_put_piece_number + 1))) {
-		gameend_process();
+	if (!checkNextTurn(numberCalculation(nowPutPieceNumber + 1))) {
+		gameEndProcess();
 	}
 }
 
-function change_turn_display() {
-	if (is_black_turn) {
+function changeTurnDisplay() {
+	if (isBlackTurn) {
 		document.getElementById("turn").style.color = "#eee";
 		document.getElementById("turn").style.backgroundColor = "#333";
-		document.getElementById("turn").firstChild.innerHTML = `先手番:${numberCalculation(now_put_piece_number)}<br>${now_put_piece_number}ターン目`
+		document.getElementById("turn").firstChild.innerHTML = `先手番:${numberCalculation(nowPutPieceNumber)}<br>${nowPutPieceNumber}ターン目`
 	} else {
 		document.getElementById("turn").style.color = "#333";
 		document.getElementById("turn").style.backgroundColor = "#eee";
-		document.getElementById("turn").firstChild.innerHTML = `後手番:${numberCalculation(now_put_piece_number)}<br>${now_put_piece_number}ターン目`
-	};
-};
+		document.getElementById("turn").firstChild.innerHTML = `後手番:${numberCalculation(nowPutPieceNumber)}<br>${nowPutPieceNumber}ターン目`
+	}
+}
 
 function numberCalculation(num) {
 	if (num % 5) {
 		return num % 5;
 	} else {
 		return 5;
-	};
-};
+	}
+}
 
-function gameend_process() {
-	if (is_black_turn) {
-		alert(`後手が${numberCalculation(now_put_piece_number + 1)}を持っていません`);
+function gameEndProcess() {
+	if (isBlackTurn) {
+		alert(`後手が${numberCalculation(nowPutPieceNumber + 1)}を持っていません`);
 		alert("先手の勝ちです");
 
 		document.getElementById("turn").style.color = "#eee";
 		document.getElementById("turn").style.backgroundColor = "#87bdd8";
 		document.getElementById("turn").firstChild.innerHTML = "勝者:先手";
-		document.getElementById("next_game_button").style.display = "block"
+		document.getElementById("next-game-button").style.display = "block"
 
-		remove_all_event();
-		insertion_array_data_to_board();
-		insertion_array_data_to_piece_table();
-		insertion_array_data_to_deck();
+		removeAllEvent();
+		insertionArrayDataToBoard();
+		insertionArrayDataToPieceTable();
+		insertionArrayDataToDeck();
 		return;
 	} else {
-		alert(`先手が${numberCalculation(now_put_piece_number + 1)}を持っていません`);
+		alert(`先手が${numberCalculation(nowPutPieceNumber + 1)}を持っていません`);
 		alert("後手の勝ちです");
 
 		document.getElementById("turn").style.color = "#eee";
 		document.getElementById("turn").style.backgroundColor = "#87bdd8";
 		document.getElementById("turn").firstChild.innerHTML = "勝者:後手";
-		document.getElementById("next_game_button").style.display = "block"
+		document.getElementById("next-game-button").style.display = "block"
 
-		remove_all_event();
-		insertion_array_data_to_board();
-		insertion_array_data_to_piece_table();
-		insertion_array_data_to_deck();
+		removeAllEvent();
+		insertionArrayDataToBoard();
+		insertionArrayDataToPieceTable();
+		insertionArrayDataToDeck();
 		return;
 	}
 }
 
-function remove_all_event() {
+function removeAllEvent() {
 	for (let y = 0; y < BOARD_SIZE; ++y) {
 		for (let x = 0; x < BOARD_SIZE; ++x) {
-			document.getElementById(`${y + 1}_${x + 1}`).removeEventListener("click", clicked_board_no_deck, false);
-		};
-	};
+			document.getElementById(`${y + 1}-${x + 1}`).removeEventListener("click", clicedBoardNoDeck, false);
+		}
+	}
 
 	for (let y = 0; y < 2; ++y) {
 		for (let x = 0; x < 3; ++x) {
 			if (y * 3 + x + 1 != 6) {
-				document.getElementById(`${y * 3 + x + 1}_black_storage`).removeEventListener("click", select_piece_process, false);
-				document.getElementById(`${y * 3 + x + 1}_white_storage`).removeEventListener("click", select_piece_process, false);
-			};
-		};
-	};
-};
+				document.getElementById(`${y * 3 + x + 1}-black-storage`).removeEventListener("click", selectPieceProcess, false);
+				document.getElementById(`${y * 3 + x + 1}-white-storage`).removeEventListener("click", selectPieceProcess, false);
+			}
+		}
+	}
+}
 
-function next_game_process() {
-	let next_game = confirm("次の試合をしますか？");
-	if (next_game) {
+function nextGameProcess() {
+	let nextGame = confirm("次の試合をしますか？");
+	if (nextGame) {
 		location.href = location.href;
-	};
-};
+	}
+}
 
-function insertion_array_data_to_board() {
+function insertionArrayDataToBoard() {
 	for (let y = 1; y <= BOARD_SIZE; ++y) {
 		for (let x = 1; x <= BOARD_SIZE; ++x) {
-			let now_board_position = document.getElementById(`${y}_${x}`);
-			if (!(now_board_position.children.length)) {
-				if (board_status_array[y][x] !== "space") {
-					let html_img = document.createElement("img");
+			let nowBoardPosition = document.getElementById(`${y}-${x}`);
+			if (!(nowBoardPosition.children.length)) {
+				if (nowBoardStatusArray[y][x] !== "space") {
+					let htmlImg = document.createElement("img");
 
-					html_img.src = `number${board_status_array[y][x]}.png`;
-					now_board_position.appendChild(html_img);
-				};
+					htmlImg.src = `number${nowBoardStatusArray[y][x]}.png`;
+					nowBoardPosition.appendChild(htmlImg);
+				}
 			} else {
-				if (board_status_array[y][x] === "space") {
-					now_board_position.removeChild(now_board_position.firstChild);
-				};
-			};
-		};
-	};
-};
+				if (nowBoardStatusArray[y][x] === "space") {
+					nowBoardPosition.removeChild(nowBoardPosition.firstChild);
+				}
+			}
+		}
+	}
+}
 
-
-function insertion_array_data_to_piece_table() {
+function insertionArrayDataToPieceTable() {
 	for (let i = 0; i < 5; ++i) {
-		removeChildren(`${i + 1}_black_storage`);
-		removeChildren(`${i + 1}_white_storage`);
+		removeChildren(`${i + 1}-black-storage`);
+		removeChildren(`${i + 1}-white-storage`);
 
 		for (let j = 0; j < 5; ++j) {
-			let black_piece_img = document.createElement("img");
-			let white_piece_img = document.createElement("img");
+			let blackPieceImg = document.createElement("img");
+			let whitePieceImg = document.createElement("img");
 
-			black_piece_img.src = `number${i + 1}.png`;
-			white_piece_img.src = `number${i + 1}.png`;
+			blackPieceImg.src = `number${i + 1}.png`;
+			whitePieceImg.src = `number${i + 1}.png`;
 
-			if (black_pieces[i] <= j) {
-				black_piece_img.className = "noPieces";
+			if (blackPieces[i] <= j) {
+				blackPieceImg.className = "noPieces";
 			};
 
-			if (white_pieces[i] <= j) {
-				white_piece_img.className = "noPieces";
+			if (whitePieces[i] <= j) {
+				whitePieceImg.className = "noPieces";
 			};
 
-			document.getElementById(`${i + 1}_black_storage`).appendChild(black_piece_img);
-			document.getElementById(`${i + 1}_white_storage`).appendChild(white_piece_img);
+			document.getElementById(`${i + 1}-black-storage`).appendChild(blackPieceImg);
+			document.getElementById(`${i + 1}-white-storage`).appendChild(whitePieceImg);
 		}
-	};
-};
+	}
+}
 
 function removeChildren(id) {
 	while (document.getElementById(id).children.length)
 		document.getElementById(id).children[0].remove();
-};
+}
 
-function insertion_array_data_to_deck() {
+function insertionArrayDataToDeck() {
 	removeChildren("deck");
 
 	for (let i = deck.length; i > 0; --i) {
 		for (let j = deck.length; j > 0; --j) {
-			let html_img = document.createElement("img");
+			let htmlImg = document.createElement("img");
 
-			html_img.src = `number${j}.png`;
+			htmlImg.src = `number${j}.png`;
 			if (deck[j - 1] <= (deck.length - i)) {
-				html_img.className = "noPieces"
-			};
-			document.getElementById("deck").appendChild(html_img);
-		};
-	};
-};
+				htmlImg.className = "noPieces"
+			}
+			document.getElementById("deck").appendChild(htmlImg);
+		}
+	}
+}
 
-function create_board() {
+function createBoard() {
 
 	for (let y = 0; y < BOARD_SIZE; ++y) {
-		let html_tr = document.createElement("tr");
-		board.appendChild(html_tr);
+		let htmlTr = document.createElement("tr");
+		board.appendChild(htmlTr);
 
 		for (let x = 0; x < BOARD_SIZE; ++x) {
-			let html_td = document.createElement("td");
+			let htmlTd = document.createElement("td");
 
-			html_td.addEventListener("click", clicked_board, false);
-			html_td.id = `${y + 1}_${x + 1}`;
-			html_tr.appendChild(html_td);
-		};
-	};
-};
+			htmlTd.addEventListener("click", clickedBoard, false);
+			htmlTd.id = `${y + 1}-${x + 1}`;
+			htmlTr.appendChild(htmlTd);
+		}
+	}
+}
 
 
-function create_piece_table() {
+function createPieceTable() {
 	for (let y = 0; y < 5; ++y) {
 
-		let html_tr_black = document.createElement("tr");
-		let html_tr_white = document.createElement("tr");
-		let html_td_black = document.createElement("td");
-		let html_td_white = document.createElement("td");
-		let html_img_black = document.createElement("img");
-		let html_img_white = document.createElement("img");
+		let htmlTrBlack = document.createElement("tr");
+		let htmlTrWhite = document.createElement("tr");
+		let htmlTdBlack = document.createElement("td");
+		let htmlTdWhite = document.createElement("td");
+		let htmlImgBlack = document.createElement("img");
+		let htmlImgWhite = document.createElement("img");
 
-		html_td_black.id = `${y + 1}_black_storage`;
-		html_td_white.id = `${y + 1}_white_storage`;
+		htmlTdBlack.id = `${y + 1}-black-storage`;
+		htmlTdWhite.id = `${y + 1}-white-storage`;
 
-		html_td_black.appendChild(html_img_black);
-		html_td_white.appendChild(html_img_white);
-		html_tr_black.appendChild(html_td_black);
-		html_tr_white.appendChild(html_td_white);
-		black_piece_table.appendChild(html_tr_black);
-		white_piece_table.appendChild(html_tr_white);
-	};
+		htmlTdBlack.appendChild(htmlImgBlack);
+		htmlTdWhite.appendChild(htmlImgWhite);
+		htmlTrBlack.appendChild(htmlTdBlack);
+		htmlTrWhite.appendChild(htmlTdWhite);
+		document.getElementById("black-piece-table").appendChild(htmlTrBlack);
+		document.getElementById("white-piece-table").appendChild(htmlTrWhite);
+	}
+	insertionArrayDataToPieceTable();
+}
 
-	insertion_array_data_to_piece_table();
-};
-
-function matching() {
+/*function matching() {
 	websocket.send("matching");
 	websocket.onmessage = function (evt) {
-		if (is_player_turn_of_black == "") {
+		if (isPlayerTurnOfBlack == "") {
 			let message = evt.data.split("\n")
 
 			if (message[0] == "matched!") {
 				console.log(message)
 				if (message[1] == "black") {
-					is_player_turn_of_black = true
+					isPlayerTurnOfBlack = true
 				} else if (message[1] == "white") {
-					is_player_turn_of_black = false
+					isPlayerTurnOfBlack = false
 				}
 
 				websocket.onmessage = function (evt) {
-					if (is_player_turn_of_black != is_black_turn && evt.data != "ping") {
+					if (isPlayerTurnOfBlack != isBlackTurn && evt.data != "ping") {
 						let message = JSON.parse(evt.data);
-						//let now_board_status_array = JSON.parse(JSON.stringify(board_status_array));
+						//let now_boardStatusArray = JSON.parse(JSON.stringify(nowBoardStatusArray));
 
-						docuemnt.getElementById(message.piece_id).click();
-						is_black_turn = !is_black_turn
+						docuemnt.getElementById(message.pieceId).click();
+						isBlackTurn = !isBlackTurn
 						console.log(message)
 					}
 				}
@@ -591,12 +617,12 @@ function matching() {
 			}
 		}
 	}
-}
+}*/
 
-create_board_array();
-create_board();
-create_piece_table();
-insertion_array_data_to_deck();
+createBoardArray();
+createBoard();
+createPieceTable();
+insertionArrayDataToDeck();
 
-document.getElementById("next_game_button").addEventListener("click", next_game_process, false);
-document.getElementById("matchingButton").addEventListener("click", matching, false);
+document.getElementById("next-game-button").addEventListener("click", nextGameProcess, false);
+//document.getElementById("matchingButton").addEventListener("click", matching, false);

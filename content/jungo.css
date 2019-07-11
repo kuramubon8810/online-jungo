@@ -3,7 +3,7 @@ body{
 }
 
 .grid{
-    display: none;
+    display: grid;
     grid-template-columns: repeat(3,330px);
     grid-template-rows: repeat(2,320px);
     column-gap: 10px;
@@ -32,7 +32,7 @@ img {
     vertical-align: bottom;
 }
 
-#black_piece_table {
+#black-piece-table {
     grid-column-start: 3;
     grid-row-start: 1;
     border-collapse: collapse;
@@ -60,14 +60,14 @@ img {
     transform: translateY(-50%) translateX(-50%);
 }
 
-#white_piece_table {
+#white-piece-table {
     grid-column-start: 1;
     grid-row-start: 1;
     border-collapse: collapse;
     border-spacing: 0;
 }
 
-#black_piece_table td{
+#black-piece-table td{
     width: 60px;
     height: 60px;
     border: solid #eee 2px;
@@ -75,7 +75,7 @@ img {
     color:#eee;
 }
 
-#white_piece_table td{
+#white-piece-table td{
     width: 60px;
     height: 60px;
     border: solid #333 2px;
@@ -86,7 +86,7 @@ img {
     background-color: #b7d7e8 !important;
 }
 
-.next_game_button{
+.next-game-button{
     grid-column-start: 1;
     grid-row-start: 2;
     font-size: 55px;
