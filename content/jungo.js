@@ -65,6 +65,7 @@ let onClickedBoard = (e) => {
 	if (isBlackTurn == isPlayerTurnOfBlack) {
 		if (nowBoardStatusArray[pieceCoordinate.y][pieceCoordinate.x] == "space") {
 			let nowNum = numberCalculation(nowPutPieceNumber);
+
 			nowBoardStatusArray[pieceCoordinate.y][pieceCoordinate.x] = `${nowNum}`;
 			applyOperationToNowBoardData(canPutInsertionToArray(nowBoardStatusArray, nowNum, pieceCoordinate));
 
@@ -81,13 +82,15 @@ let onClickedBoard = (e) => {
 			changeTurnDisplay();
 
 			let toServerMessage =
-				JSON.stringify({
-					"pieceId": pieceId,
-					"nowBoardStatusArray": nowBoardStatusArray,
-					"deck": deck,
-					"blackPieces": blackPieces,
-					"whitePieces": whitePieces
-				});
+				JSON.stringify(
+					{
+						"pieceId": pieceId,
+						"nowBoardStatusArray": nowBoardStatusArray,
+						"deck": deck,
+						"blackPieces": blackPieces,
+						"whitePieces": whitePieces
+					}
+				);
 
 			console.log(toServerMessage);
 			WEBSOCKET.send(toServerMessage);
@@ -133,13 +136,15 @@ let onClickedBoardNoDeck = (e) => {
 				changeTurnDisplay();
 
 				let toServerMessage =
-					JSON.stringify({
-						"pieceId": pieceId,
-						"nowBoardStatusArray": nowBoardStatusArray,
-						"deck": deck,
-						"blackPieces": blackPieces,
-						"whitePieces": whitePieces
-					});
+					JSON.stringify(
+						{
+							"pieceId": pieceId,
+							"nowBoardStatusArray": nowBoardStatusArray,
+							"deck": deck,
+							"blackPieces": blackPieces,
+							"whitePieces": whitePieces
+						}
+					);
 
 				console.log(toServerMessage);
 				WEBSOCKET.send(toServerMessage);
@@ -157,6 +162,7 @@ let onClickedBoardNoDeck = (e) => {
 
 let onSelectPieceProcess = (e) => {
 	let pieceId = e.target.id || e.target.parentElement.id;
+
 	selectTookPieceData = {
 		number: pieceId.slice(0, 1),
 		owner: pieceId.slice(2, 7)
@@ -167,21 +173,26 @@ let onSelectPieceProcess = (e) => {
 	} else {
 		document.getElementById(pieceId).classList.add("selected");
 	}
+
 	selectedTookPiece = !selectedTookPiece;
 }
 
 function canPutInsertionToArray(nowBoardStatusArray, nowNum, pieceCoordinate) {
 	let nextTurnBoardStatusArray = JSON.parse(JSON.stringify(nowBoardStatusArray));
+
 	nextTurnBoardStatusArray[pieceCoordinate.y][pieceCoordinate.x] = `${nowNum}`;
+
 	let returnValues = takePieceOseroRule(nowNum, pieceCoordinate, nextTurnBoardStatusArray);
 	let tempReturnValues = takePieceGoRule(nowNum, pieceCoordinate, returnValues.nextTurnBoardStatusArray);
 
 	returnValues.nextTurnBoardStatusArray = tempReturnValues.nextTurnBoardStatusArray;
+
 	for (let i = 0; i < blackPieces.length; ++i) {  //黒と白の持ち駒の数は1～5で変わらないためとりあえず黒の長さ
 		returnValues.blackPiecesDif[i] += tempReturnValues.blackPiecesDif[i];
 		returnValues.whitePiecesDif[i] += tempReturnValues.whitePiecesDif[i];
 	}
-	return returnValues
+
+	return returnValues;
 	/*
 	returnValuesの中身
 		{
@@ -194,6 +205,7 @@ function canPutInsertionToArray(nowBoardStatusArray, nowNum, pieceCoordinate) {
 
 function searchEnemyOseroRule(nowNum, pieceCoordinate, boardStatusArray) {
 	let canPutPositionOseroRule = []
+
 	for (let y = pieceCoordinate.y - 1; y <= pieceCoordinate.y + 1; ++y) {
 		for (let x = pieceCoordinate.x - 1; x <= pieceCoordinate.x + 1; ++x) {
 			let yDirection = y - pieceCoordinate.y;
@@ -208,7 +220,7 @@ function searchEnemyOseroRule(nowNum, pieceCoordinate, boardStatusArray) {
 					y: y,
 					x: x
 				}
-				let searchpieceData = boardStatusArray[searchPosition.y][searchPosition.x]
+				let searchpieceData = boardStatusArray[searchPosition.y][searchPosition.x];
 
 				while (
 					searchpieceData != nowNum
@@ -219,7 +231,7 @@ function searchEnemyOseroRule(nowNum, pieceCoordinate, boardStatusArray) {
 						y: searchPosition.y + yDirection,
 						x: searchPosition.x + xDirection
 					}
-					searchpieceData = boardStatusArray[searchPosition.y][searchPosition.x]
+					searchpieceData = boardStatusArray[searchPosition.y][searchPosition.x];
 				}
 
 				if (boardStatusArray[searchPosition.y][searchPosition.x] == nowNum) {
@@ -236,11 +248,13 @@ function objectCalculation(pieceCoordinate, DIRECTION) {
 		y: pieceCoordinate.y + DIRECTION.y,
 		x: pieceCoordinate.x + DIRECTION.x
 	}
+
 	return temp;
 }
 
 function applyOperationToNowBoardData(operationData) {
 	nowBoardStatusArray = returnValues.nextTurnBoardStatusArray;
+
 	for (let i = 0; i < blackPieces.length; ++i) {  //黒と白の持ち駒の数は1～5で変わらないためとりあえず黒の長さ
 		blackPieces[i] += returnValues.blackPieces[i];
 		whitePieces[i] += returnValues.whitePieces[i];
@@ -251,10 +265,12 @@ function searchBreathingPointEnemyGroup(nowNum, pieceCoordinate, searchedPositio
 	for (let i = 0; i < DIRECTION.length; ++i) {
 		let piecePosition = objectCalculation(pieceCoordinate, DIRECTION[DIRECTION[i]]);
 		let pieceData = boardStatusArray[piecePosition.y][piecePosition.x];
+
 		if (pieceData == "space") {
 			return false;
 		} else if (pieceData != "outzone" && pieceData != nowNum) {
 			let pieceId = `${piecePosition.y}-${piecePosition.x}`;
+
 			if (!searchedPosition.includes(pieceId)) {
 				searchedPosition.push(pieceId);
 				if (!searchBreathingPointEnemyGroup(nowNum, piecePosition, searchedPosition, searchingGroup, boardStatusArray)) {
@@ -271,11 +287,13 @@ function searchEnemyGoRule(nowNum, pieceCoordinate, boardStatusArray) {
 	let canPutPositionGoRule = []
 	let searchedPosition = []
 	let searchingGroup = []
+
 	for (let i = 0; i < DIRECTION.length; ++i) {
 		let piecePosition = objectCalculation(pieceCoordinate, DIRECTION[DIRECTION[i]]);
 		let pieceData = boardStatusArray[piecePosition.y][piecePosition.x];
+
 		if (pieceData != "space" && pieceData != "outzone" && pieceData != nowNum) {
-			searchedPosition.push(`${piecePosition.y}-${piecePosition.x}`)
+			searchedPosition.push(`${piecePosition.y}-${piecePosition.x}`);
 			if (searchBreathingPointEnemyGroup(nowNum, piecePosition, searchedPosition, searchingGroup, boardStatusArray)) {
 				Array.prototype.push.apply(canPutPositionGoRule, searchingGroup);
 			}
@@ -293,10 +311,11 @@ function objectSort(obj) {
 	var map = {}
 
 	// ソート済みのキー順に返却用のオブジェクトに値を格納する
-	keys.forEach(function (key) {
-
-		map[key] = obj[key];
-	});
+	keys.forEach(
+		function (key) {
+			map[key] = obj[key];
+		}
+	);
 
 	return map;
 }
@@ -316,6 +335,7 @@ function takePieceOseroRule(nowNum, pieceCoordinate, nextTurnBoardStatusArray) {
 
 		while (!(JSON.stringify(objectSort(canPutPositionOseroRule[i])) === JSON.stringify(objectSort(takePiecePosition)))) {
 			let takePiece = nextTurnBoardStatusArray[takePiecePosition.y][takePiecePosition.x];
+
 			if (nowNum != takePiece) {
 				if (isBlackTurn) {
 					++blackPiecesDif[parseInt(takePiece) - 1];
@@ -350,13 +370,14 @@ function takePieceOseroRule(nowNum, pieceCoordinate, nextTurnBoardStatusArray) {
 function takePieceGoRule(nowNum, pieceCoordinate, nextTurnBoardStatusArray) {
 	let blackPiecesDif = [0, 0, 0, 0, 0];
 	let whitePiecesDif = [0, 0, 0, 0, 0];
-
 	let canPutPositionGoRule = searchEnemyGoRule(nowNum, pieceCoordinate, nextTurnBoardStatusArray);
+
 	for (let i = 0; i < canPutPositionGoRule.length; ++i) {
 		let piecePosition = {
 			y: canPutPositionGoRule[i].y,
 			x: canPutPositionGoRule[i].x
 		}
+
 		if (nextTurnBoardStatusArray[piecePosition.y][piecePosition.x] != "space") {
 			if (isBlackTurn) {
 				++blackPiecesDif[parseInt(nextTurnBoardStatusArray[piecePosition.y][piecePosition.x]) - 1];
@@ -395,7 +416,7 @@ function changeToUsePieceTable() {
 		for (let x = 0; x < 3; ++x) {
 			if (y * 3 + x + 1 != 6) {
 				document.getElementById(`${y * 3 + x + 1}-black-storage`).addEventListener("click", onSelectPieceProcess, false);
-				document.getElementById(`${y * 3 + x + 1}-white-storage`).addEventListener("click", onSelectPieceProcess, false)
+				document.getElementById(`${y * 3 + x + 1}-white-storage`).addEventListener("click", onSelectPieceProcess, false);
 			}
 		}
 	}
@@ -409,11 +430,11 @@ function changeTurnDisplay() {
 	if (isBlackTurn) {
 		document.getElementById("turn").style.color = "#eee";
 		document.getElementById("turn").style.backgroundColor = "#333";
-		document.getElementById("turn").firstChild.innerHTML = `先手番:${numberCalculation(nowPutPieceNumber)}<br>${nowPutPieceNumber}ターン目`
+		document.getElementById("turn").firstChild.innerHTML = `先手番:${numberCalculation(nowPutPieceNumber)}<br>${nowPutPieceNumber}ターン目`;
 	} else {
 		document.getElementById("turn").style.color = "#333";
 		document.getElementById("turn").style.backgroundColor = "#eee";
-		document.getElementById("turn").firstChild.innerHTML = `後手番:${numberCalculation(nowPutPieceNumber)}<br>${nowPutPieceNumber}ターン目`
+		document.getElementById("turn").firstChild.innerHTML = `後手番:${numberCalculation(nowPutPieceNumber)}<br>${nowPutPieceNumber}ターン目`;
 	}
 }
 
@@ -433,7 +454,7 @@ function gameEndProcess() {
 		document.getElementById("turn").style.color = "#eee";
 		document.getElementById("turn").style.backgroundColor = "#87bdd8";
 		document.getElementById("turn").firstChild.innerHTML = "勝者:先手";
-		document.getElementById("next-game-button").style.display = "block"
+		document.getElementById("next-game-button").style.display = "block";
 
 		removeAllEvent();
 		applyArrayDataToBoard();
@@ -447,7 +468,7 @@ function gameEndProcess() {
 		document.getElementById("turn").style.color = "#eee";
 		document.getElementById("turn").style.backgroundColor = "#87bdd8";
 		document.getElementById("turn").firstChild.innerHTML = "勝者:後手";
-		document.getElementById("next-game-button").style.display = "block"
+		document.getElementById("next-game-button").style.display = "block";
 
 		removeAllEvent();
 		applyArrayDataToBoard();
@@ -528,7 +549,7 @@ function applyArrayDataToPieceTable() {
 }
 
 function removeChildren(id) {
-	while (document.getElementById(id).children.length)
+	while (document.getElementById(id).children.length);
 		document.getElementById(id).children[0].remove();
 }
 
@@ -540,9 +561,11 @@ function applyArrayDataToDeck() {
 			let htmlImg = document.createElement("img");
 
 			htmlImg.src = `number${j}.png`;
+
 			if (deck[j - 1] <= (deck.length - i)) {
-				htmlImg.className = "noPieces"
+				htmlImg.className = "noPieces";
 			}
+
 			document.getElementById("deck").appendChild(htmlImg);
 		}
 	}
@@ -552,6 +575,7 @@ function initBoard() {
 
 	for (let y = 0; y < BOARD_SIZE; ++y) {
 		let htmlTr = document.createElement("tr");
+
 		board.appendChild(htmlTr);
 
 		for (let x = 0; x < BOARD_SIZE; ++x) {
@@ -567,7 +591,6 @@ function initBoard() {
 
 function initPieceTable() {
 	for (let y = 0; y < 5; ++y) {
-
 		let htmlTrBlack = document.createElement("tr");
 		let htmlTrWhite = document.createElement("tr");
 		let htmlTdBlack = document.createElement("td");
@@ -582,6 +605,7 @@ function initPieceTable() {
 		htmlTdWhite.appendChild(htmlImgWhite);
 		htmlTrBlack.appendChild(htmlTdBlack);
 		htmlTrWhite.appendChild(htmlTdWhite);
+
 		document.getElementById("black-piece-table").appendChild(htmlTrBlack);
 		document.getElementById("white-piece-table").appendChild(htmlTrWhite);
 	}
@@ -592,14 +616,14 @@ function matching() {
 	WEBSOCKET.send("matching");
 	WEBSOCKET.onmessage = function (evt) {
 		if (isPlayerTurnOfBlack == "") {
-			let message = evt.data.split("\n")
+			let message = evt.data.split("\n");
 
 			if (message[0] == "matched!") {
-				console.log(message)
+				console.log(message);
 				if (message[1] == "black") {
-					isPlayerTurnOfBlack = true
+					isPlayerTurnOfBlack = true;
 				} else if (message[1] == "white") {
-					isPlayerTurnOfBlack = false
+					isPlayerTurnOfBlack = false;
 				}
 
 				WEBSOCKET.onmessage = function (evt) {
@@ -608,7 +632,7 @@ function matching() {
 
 						
 						document.getElementById(message.pieceId).click();
-						isBlackTurn = !isBlackTurn
+						isBlackTurn = !isBlackTurn;
 						console.log(message);
 					}
 				}
