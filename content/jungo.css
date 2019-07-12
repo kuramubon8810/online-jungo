@@ -3,7 +3,7 @@ body{
 }
 
 .grid{
-    display: grid;
+    display: none;
     grid-template-columns: repeat(3,330px);
     grid-template-rows: repeat(2,320px);
     column-gap: 10px;

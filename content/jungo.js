@@ -1,5 +1,5 @@
 'use strict';
-//const WEBSOCKET = new WebSocket("ws://localhost:9090/ws");
+const WEBSOCKET = new WebSocket("ws://localhost:9090/ws");
 const BOARD_SIZE = 5;
 const DIRECTION = ["up", "left", "right", "down"]
 DIRECTION["up"] = {
@@ -55,99 +55,32 @@ function createBoardArray() {
 	}
 }
 
-let clickedBoard = (e) => {
+let onClickedBoard = (e) => {
 	let pieceId = e.target.id || e.target.parentElement.id;
 	let pieceCoordinate = {
 		y: parseInt(pieceId.slice(0, 1)),
 		x: parseInt(pieceId.slice(2, 3))
 	}
 
-	//if (isBlackTurn == isPlayerTurnOfBlack) {
-	if (nowBoardStatusArray[pieceCoordinate.y][pieceCoordinate.x] == "space") {
-		let nowNum = numberCalculation(nowPutPieceNumber);
-		nowBoardStatusArray[pieceCoordinate.y][pieceCoordinate.x] = `${nowNum}`;
-		let returnValues = ifCanPutInsertionToArray(nowBoardStatusArray, nowNum, pieceCoordinate);
-
-		nowBoardStatusArray = returnValues.nextTurnBoardStatusArray;
-		for (let i = 0; i < blackPieces.length; ++i) {  //黒と白の持ち駒の数は1～5で変わらないためとりあえず黒の長さ
-			blackPieces[i] += returnValues.blackPieces[i];
-			whitePieces[i] += returnValues.whitePieces[i];
-		}
-
-		--deck[nowNum - 1];
-		if (deck[4] == 0) { //5が山札からなくなったか
-			changeToUsePieceTable();
-		}
-
-		++nowPutPieceNumber;
-		isBlackTurn = !isBlackTurn;
-		insertionArrayDataToBoard();
-		insertionArrayDataToPieceTable();
-		insertionArrayDataToDeck();
-		changeTurnDisplay();
-
-		/*let toServerMessage =
-			JSON.stringify({
-				"pieceId": pieceId,
-				"nowBoardStatusArray": nowBoardStatusArray,
-				"deck": deck,
-				"blackPieces": blackPieces,
-				"whitePieces": whitePieces
-			});
-
-		console.log(toServerMessage);
-		websocket.send(toServerMessage);*/
-	}
-	//}
-};
-
-let clicedBoardNoDeck = (e) => {
-	let pieceId = e.target.id || e.target.parentElement.id;
-	let pieceCoordinate = {
-		y: parseInt(pieceId.slice(0, 1)),
-		x: parseInt(pieceId.slice(2, 3))
-	}
-
-	//if (isBlackTurn == isPlayerTurnOfBlack) {
-	if (nowBoardStatusArray[pieceCoordinate.y][pieceCoordinate.x] == "space" && selectedTookPiece) {
-		let nowNum = numberCalculation(nowPutPieceNumber);
-
-		if (selectTookPieceData.number == nowNum) {
-			if (isBlackTurn && selectTookPieceData.owner == "black") {
-				--blackPieces[nowNum - 1];
-			} else if (!isBlackTurn && selectTookPieceData.owner == "white") {
-				--whitePieces[nowNum - 1];
-			} else {
-				alert("それは敵の駒です");
-				selectedTookPiece = false;
-				document.getElementsByClassName("selected")[0].classList.remove("selected");
-				return;
-			}
-
+	if (isBlackTurn == isPlayerTurnOfBlack) {
+		if (nowBoardStatusArray[pieceCoordinate.y][pieceCoordinate.x] == "space") {
+			let nowNum = numberCalculation(nowPutPieceNumber);
 			nowBoardStatusArray[pieceCoordinate.y][pieceCoordinate.x] = `${nowNum}`;
+			applyOperationToNowBoardData(canPutInsertionToArray(nowBoardStatusArray, nowNum, pieceCoordinate));
 
-			let returnValues = ifCanPutInsertionToArray(nowBoardStatusArray, nowNum, pieceCoordinate);
-
-			nowBoardStatusArray = returnValues.nextTurnBoardStatusArray;
-
-			for (let i = 0; i < blackPieces.length; ++i) {  //黒と白の持ち駒の数は1～5で変わらないためとりあえず黒の長さ
-				blackPieces[i] += returnValues.blackPieces[i];
-				whitePieces[i] += returnValues.whitePieces[i];
-			}
-
-			if (!checkNextTurn(numberCalculation(nowPutPieceNumber + 1))) {
-				gameEndProcess();
+			--deck[nowNum - 1];
+			if (deck[4] == 0) { //5が山札からなくなったか
+				changeToUsePieceTable();
 			}
 
 			++nowPutPieceNumber;
 			isBlackTurn = !isBlackTurn;
-			selectedTookPiece = false;
-			insertionArrayDataToBoard();
-			insertionArrayDataToPieceTable();
+			applyArrayDataToBoard();
+			applyArrayDataToPieceTable();
+			applyArrayDataToDeck();
 			changeTurnDisplay();
 
-
-			/*let toServerMessage =
+			let toServerMessage =
 				JSON.stringify({
 					"pieceId": pieceId,
 					"nowBoardStatusArray": nowBoardStatusArray,
@@ -157,20 +90,72 @@ let clicedBoardNoDeck = (e) => {
 				});
 
 			console.log(toServerMessage);
-			websocket.send(toServerMessage);
-			*/
-			document.getElementsByClassName("selected")[0].classList.remove("selected");
-			//document.getElementById("next-game-button").style.display = "block"
-		} else {
-			alert(`今は${nowNum}を置くターンです`);
-			selectedTookPiece = false;
-			document.getElementsByClassName("selected")[0].classList.remove("selected");
+			WEBSOCKET.send(toServerMessage);
 		}
 	}
-	//}
-};
+}
 
-let selectPieceProcess = (e) => {
+let onClickedBoardNoDeck = (e) => {
+	let pieceId = e.target.id || e.target.parentElement.id;
+	let pieceCoordinate = {
+		y: parseInt(pieceId.slice(0, 1)),
+		x: parseInt(pieceId.slice(2, 3))
+	}
+
+	if (isBlackTurn == isPlayerTurnOfBlack) {
+		if (nowBoardStatusArray[pieceCoordinate.y][pieceCoordinate.x] == "space" && selectedTookPiece) {
+			let nowNum = numberCalculation(nowPutPieceNumber);
+
+			if (selectTookPieceData.number == nowNum) {
+				if (isBlackTurn && selectTookPieceData.owner == "black") {
+					--blackPieces[nowNum - 1];
+				} else if (!isBlackTurn && selectTookPieceData.owner == "white") {
+					--whitePieces[nowNum - 1];
+				} else {
+					alert("それは敵の駒です");
+					selectedTookPiece = false;
+					document.getElementsByClassName("selected")[0].classList.remove("selected");
+					return;
+				}
+
+				nowBoardStatusArray[pieceCoordinate.y][pieceCoordinate.x] = `${nowNum}`;
+				applyOperationToNowBoardData(canPutInsertionToArray(nowBoardStatusArray, nowNum, pieceCoordinate));
+
+				if (!checkNextTurn(numberCalculation(nowPutPieceNumber + 1))) {
+					gameEndProcess();
+				}
+
+				++nowPutPieceNumber;
+				isBlackTurn = !isBlackTurn;
+				selectedTookPiece = false;
+				applyArrayDataToBoard();
+				applyArrayDataToPieceTable();
+				changeTurnDisplay();
+
+				let toServerMessage =
+					JSON.stringify({
+						"pieceId": pieceId,
+						"nowBoardStatusArray": nowBoardStatusArray,
+						"deck": deck,
+						"blackPieces": blackPieces,
+						"whitePieces": whitePieces
+					});
+
+				console.log(toServerMessage);
+				WEBSOCKET.send(toServerMessage);
+			
+				document.getElementsByClassName("selected")[0].classList.remove("selected");
+				//document.getElementById("next-game-button").style.display = "block"
+			} else {
+				alert(`今は${nowNum}を置くターンです`);
+				selectedTookPiece = false;
+				document.getElementsByClassName("selected")[0].classList.remove("selected");
+			}
+		}
+	}
+}
+
+let onSelectPieceProcess = (e) => {
 	let pieceId = e.target.id || e.target.parentElement.id;
 	selectTookPieceData = {
 		number: pieceId.slice(0, 1),
@@ -183,9 +168,9 @@ let selectPieceProcess = (e) => {
 		document.getElementById(pieceId).classList.add("selected");
 	}
 	selectedTookPiece = !selectedTookPiece;
-};
+}
 
-function ifCanPutInsertionToArray(nowBoardStatusArray, nowNum, pieceCoordinate) {
+function canPutInsertionToArray(nowBoardStatusArray, nowNum, pieceCoordinate) {
 	let nextTurnBoardStatusArray = JSON.parse(JSON.stringify(nowBoardStatusArray));
 	nextTurnBoardStatusArray[pieceCoordinate.y][pieceCoordinate.x] = `${nowNum}`;
 	let returnValues = takePieceOseroRule(nowNum, pieceCoordinate, nextTurnBoardStatusArray);
@@ -193,10 +178,18 @@ function ifCanPutInsertionToArray(nowBoardStatusArray, nowNum, pieceCoordinate) 
 
 	returnValues.nextTurnBoardStatusArray = tempReturnValues.nextTurnBoardStatusArray;
 	for (let i = 0; i < blackPieces.length; ++i) {  //黒と白の持ち駒の数は1～5で変わらないためとりあえず黒の長さ
-		returnValues.blackPieces[i] += tempReturnValues.blackPieces[i];
-		returnValues.whitePieces[i] += tempReturnValues.whitePieces[i];
+		returnValues.blackPiecesDif[i] += tempReturnValues.blackPiecesDif[i];
+		returnValues.whitePiecesDif[i] += tempReturnValues.whitePiecesDif[i];
 	}
 	return returnValues
+	/*
+	returnValuesの中身
+		{
+		"nextTurnBoardStatusArray": nextTurnBoardStatusArray, 次のターンの盤面のデータ
+		"blackPiecesDif": blackPiecesDif, 今のターンの黒の持ち駒と次のターンの黒の持ち駒の差
+		"whitePiecesDif": whitePiecesDif  今のターンの白の持ち駒と次のターンの白の持ち駒の差
+		}
+	*/
 }
 
 function searchEnemyOseroRule(nowNum, pieceCoordinate, boardStatusArray) {
@@ -244,6 +237,14 @@ function objectCalculation(pieceCoordinate, DIRECTION) {
 		x: pieceCoordinate.x + DIRECTION.x
 	}
 	return temp;
+}
+
+function applyOperationToNowBoardData(operationData) {
+	nowBoardStatusArray = returnValues.nextTurnBoardStatusArray;
+	for (let i = 0; i < blackPieces.length; ++i) {  //黒と白の持ち駒の数は1～5で変わらないためとりあえず黒の長さ
+		blackPieces[i] += returnValues.blackPieces[i];
+		whitePieces[i] += returnValues.whitePieces[i];
+	}
 }
 
 function searchBreathingPointEnemyGroup(nowNum, pieceCoordinate, searchedPosition, searchingGroup, boardStatusArray) {
@@ -341,8 +342,8 @@ function takePieceOseroRule(nowNum, pieceCoordinate, nextTurnBoardStatusArray) {
 
 	return {
 		"nextTurnBoardStatusArray": nextTurnBoardStatusArray,
-		"blackPieces": blackPiecesDif,
-		"whitePieces": whitePiecesDif
+		"blackPiecesDif": blackPiecesDif,
+		"whitePiecesDif": whitePiecesDif
 	}
 }
 
@@ -369,8 +370,8 @@ function takePieceGoRule(nowNum, pieceCoordinate, nextTurnBoardStatusArray) {
 
 	return {
 		"nextTurnBoardStatusArray": nextTurnBoardStatusArray,
-		"blackPieces": blackPiecesDif,
-		"whitePieces": whitePiecesDif
+		"blackPiecesDif": blackPiecesDif,
+		"whitePiecesDif": whitePiecesDif
 	}
 }
 
@@ -385,16 +386,16 @@ function checkNextTurn(nextNum) {
 function changeToUsePieceTable() {
 	for (let y = 0; y < BOARD_SIZE; ++y) {
 		for (let x = 0; x < BOARD_SIZE; ++x) {
-			document.getElementById(`${y + 1}-${x + 1}`).removeEventListener("click", clickedBoard, false);
-			document.getElementById(`${y + 1}-${x + 1}`).addEventListener("click", clicedBoardNoDeck, false);
+			document.getElementById(`${y + 1}-${x + 1}`).removeEventListener("click", onClickedBoard, false);
+			document.getElementById(`${y + 1}-${x + 1}`).addEventListener("click", onClickedBoardNoDeck, false);
 		}
 	}
 
 	for (let y = 0; y < 2; ++y) {
 		for (let x = 0; x < 3; ++x) {
 			if (y * 3 + x + 1 != 6) {
-				document.getElementById(`${y * 3 + x + 1}-black-storage`).addEventListener("click", selectPieceProcess, false);
-				document.getElementById(`${y * 3 + x + 1}-white-storage`).addEventListener("click", selectPieceProcess, false)
+				document.getElementById(`${y * 3 + x + 1}-black-storage`).addEventListener("click", onSelectPieceProcess, false);
+				document.getElementById(`${y * 3 + x + 1}-white-storage`).addEventListener("click", onSelectPieceProcess, false)
 			}
 		}
 	}
@@ -435,9 +436,9 @@ function gameEndProcess() {
 		document.getElementById("next-game-button").style.display = "block"
 
 		removeAllEvent();
-		insertionArrayDataToBoard();
-		insertionArrayDataToPieceTable();
-		insertionArrayDataToDeck();
+		applyArrayDataToBoard();
+		applyArrayDataToPieceTable();
+		applyArrayDataToDeck();
 		return;
 	} else {
 		alert(`先手が${numberCalculation(nowPutPieceNumber + 1)}を持っていません`);
@@ -449,9 +450,9 @@ function gameEndProcess() {
 		document.getElementById("next-game-button").style.display = "block"
 
 		removeAllEvent();
-		insertionArrayDataToBoard();
-		insertionArrayDataToPieceTable();
-		insertionArrayDataToDeck();
+		applyArrayDataToBoard();
+		applyArrayDataToPieceTable();
+		applyArrayDataToDeck();
 		return;
 	}
 }
@@ -459,15 +460,15 @@ function gameEndProcess() {
 function removeAllEvent() {
 	for (let y = 0; y < BOARD_SIZE; ++y) {
 		for (let x = 0; x < BOARD_SIZE; ++x) {
-			document.getElementById(`${y + 1}-${x + 1}`).removeEventListener("click", clicedBoardNoDeck, false);
+			document.getElementById(`${y + 1}-${x + 1}`).removeEventListener("click", onClickedBoardNoDeck, false);
 		}
 	}
 
 	for (let y = 0; y < 2; ++y) {
 		for (let x = 0; x < 3; ++x) {
 			if (y * 3 + x + 1 != 6) {
-				document.getElementById(`${y * 3 + x + 1}-black-storage`).removeEventListener("click", selectPieceProcess, false);
-				document.getElementById(`${y * 3 + x + 1}-white-storage`).removeEventListener("click", selectPieceProcess, false);
+				document.getElementById(`${y * 3 + x + 1}-black-storage`).removeEventListener("click", onSelectPieceProcess, false);
+				document.getElementById(`${y * 3 + x + 1}-white-storage`).removeEventListener("click", onSelectPieceProcess, false);
 			}
 		}
 	}
@@ -480,7 +481,7 @@ function nextGameProcess() {
 	}
 }
 
-function insertionArrayDataToBoard() {
+function applyArrayDataToBoard() {
 	for (let y = 1; y <= BOARD_SIZE; ++y) {
 		for (let x = 1; x <= BOARD_SIZE; ++x) {
 			let nowBoardPosition = document.getElementById(`${y}-${x}`);
@@ -500,7 +501,7 @@ function insertionArrayDataToBoard() {
 	}
 }
 
-function insertionArrayDataToPieceTable() {
+function applyArrayDataToPieceTable() {
 	for (let i = 0; i < 5; ++i) {
 		removeChildren(`${i + 1}-black-storage`);
 		removeChildren(`${i + 1}-white-storage`);
@@ -531,7 +532,7 @@ function removeChildren(id) {
 		document.getElementById(id).children[0].remove();
 }
 
-function insertionArrayDataToDeck() {
+function applyArrayDataToDeck() {
 	removeChildren("deck");
 
 	for (let i = deck.length; i > 0; --i) {
@@ -547,7 +548,7 @@ function insertionArrayDataToDeck() {
 	}
 }
 
-function createBoard() {
+function initBoard() {
 
 	for (let y = 0; y < BOARD_SIZE; ++y) {
 		let htmlTr = document.createElement("tr");
@@ -556,7 +557,7 @@ function createBoard() {
 		for (let x = 0; x < BOARD_SIZE; ++x) {
 			let htmlTd = document.createElement("td");
 
-			htmlTd.addEventListener("click", clickedBoard, false);
+			htmlTd.addEventListener("click", onClickedBoard, false);
 			htmlTd.id = `${y + 1}-${x + 1}`;
 			htmlTr.appendChild(htmlTd);
 		}
@@ -564,7 +565,7 @@ function createBoard() {
 }
 
 
-function createPieceTable() {
+function initPieceTable() {
 	for (let y = 0; y < 5; ++y) {
 
 		let htmlTrBlack = document.createElement("tr");
@@ -584,12 +585,12 @@ function createPieceTable() {
 		document.getElementById("black-piece-table").appendChild(htmlTrBlack);
 		document.getElementById("white-piece-table").appendChild(htmlTrWhite);
 	}
-	insertionArrayDataToPieceTable();
+	applyArrayDataToPieceTable();
 }
 
-/*function matching() {
-	websocket.send("matching");
-	websocket.onmessage = function (evt) {
+function matching() {
+	WEBSOCKET.send("matching");
+	WEBSOCKET.onmessage = function (evt) {
 		if (isPlayerTurnOfBlack == "") {
 			let message = evt.data.split("\n")
 
@@ -601,14 +602,14 @@ function createPieceTable() {
 					isPlayerTurnOfBlack = false
 				}
 
-				websocket.onmessage = function (evt) {
+				WEBSOCKET.onmessage = function (evt) {
 					if (isPlayerTurnOfBlack != isBlackTurn && evt.data != "ping") {
 						let message = JSON.parse(evt.data);
-						//let now_boardStatusArray = JSON.parse(JSON.stringify(nowBoardStatusArray));
 
-						docuemnt.getElementById(message.pieceId).click();
+						
+						document.getElementById(message.pieceId).click();
 						isBlackTurn = !isBlackTurn
-						console.log(message)
+						console.log(message);
 					}
 				}
 
@@ -617,12 +618,12 @@ function createPieceTable() {
 			}
 		}
 	}
-}*/
+}
 
 createBoardArray();
-createBoard();
-createPieceTable();
-insertionArrayDataToDeck();
+initBoard();
+initPieceTable();
+applyArrayDataToDeck();
 
 document.getElementById("next-game-button").addEventListener("click", nextGameProcess, false);
-//document.getElementById("matchingButton").addEventListener("click", matching, false);
+document.getElementById("matchingButton").addEventListener("click", matching, false);
