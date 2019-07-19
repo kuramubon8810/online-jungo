@@ -18,7 +18,7 @@ var upgrader = websocket.Upgrader{
 }
 
 var clients = make(map[*websocket.Conn]*client)
-var gameroom = make([][]*websocket.Conn, 0)  //[[black, white], [black, white]]
+var gameRoom = make([][]*websocket.Conn, 0)  //[[black, white], [black, white]]
 
 func main(){
 	http.Handle("/", http.FileServer(http.Dir("./content")))
@@ -51,7 +51,7 @@ func echo() {
 	for{
 		matchingClient := make([]*websocket.Conn, 0)
 		for ws, property := range clients {
-			err := ws.WriteMessage(websocket.TextMessage, []byte("ping"))
+/*			err := ws.WriteMessage(websocket.TextMessage, []byte("ping"))
 
 			if err != nil {
 				log.Printf("websocket error: %s", err)
@@ -59,7 +59,7 @@ func echo() {
 				delete(clients, ws)
 				break
 			}
-
+*/
 
 			if property.status == "matching"{
 				matchingClient = append(matchingClient, ws)
@@ -68,7 +68,7 @@ func echo() {
 			log.Println(property.status)
 		}
 
-		for i := 0; (i + 1) * 2 <= len(matchingClient); i++ {  //<-+1してるのは1人のときに通ってしまうため(他にいい方法ありそう)
+		for i := 0; (i + 1) * 2 <= len(matchingClient); i++ {  //<-1してるのは1人のときに通ってしまうため(他にいい方法ありそう)
 			black := matchingClient[i * 2]
 			white := matchingClient[i * 2 + 1]
 
@@ -86,13 +86,13 @@ func echo() {
 				delete(clients, white)
 			}
 
-			gameroom = append(gameroom,[][]*websocket.Conn{{black, white}}...)  //<-このゲームは2人対戦なため
-			go gameprocess(len(gameroom) - 1)
+			gameRoom = append(gameRoom,[][]*websocket.Conn{{black, white}}...)  //<-このゲームは2人対戦なため
+			go gameProcess(len(gameRoom) - 1)
 			clients[black].status = "playing"
 			clients[black].chanel <- true
 			clients[white].status = "playing"
 			clients[white].chanel <- true
-			log.Println(gameroom)
+			log.Println(gameRoom)
 		}
 		time.Sleep(1 * time.Second)
 	}
@@ -119,18 +119,20 @@ func receiveStatus(c *websocket.Conn) {
 	}
 }
 
-func gameprocess(i int) {
-	log.Println(gameroom[i])
+func gameProcess(i int) {
+	log.Println(gameRoom[i])
 	isBlackTurn := true
-	black := gameroom[i][0]
-	white := gameroom[i][1]
+	black := gameRoom[i][0]
+	white := gameRoom[i][1]
 	for {
 		if isBlackTurn == true {
 			_, message, _ := black.ReadMessage()
 			white.WriteMessage(websocket.TextMessage, []byte(message))
+			isBlackTurn = !isBlackTurn
 		} else {
 			_, message, _ := white.ReadMessage()
 			black.WriteMessage(websocket.TextMessage, []byte(message))
+			isBlackTurn = !isBlackTurn
 		}
 	}
 }
