@@ -297,8 +297,8 @@ function matching() {
 			document.getElementById("player-turn").firstChild.innerHTML = "あなたは<br>先手番です";
 		} else if (message[1] == "white") {
 			isPlayerTurnOfBlack = false;
-			document.getElementById("player-turn").style.color = "#eee";
-			document.getElementById("player-turn").style.backgroundColor = "#333";
+			document.getElementById("player-turn").style.color = "#333";
+			document.getElementById("player-turn").style.backgroundColor = "#eee";
 			document.getElementById("player-turn").firstChild.innerHTML = "あなたは<br>後手番です";
 		}
 
@@ -320,6 +320,8 @@ function applyReceiveStatusToNowStatus(evt) {
 		alert("そこに置くことはできません");
 	} else if (receiveStatus.errStatus == "wrongStatus") {
 		alert("不正な値です");
+	} else if(receiveStatus.errStatus == "playerDisconnected") {
+		alert("対戦相手の通信が切断されました")
 	}
 
 	console.log(receiveStatus);

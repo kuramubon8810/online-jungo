@@ -2,7 +2,6 @@ package main
 
 import(
 	"net/http"
-//	"fmt"
 	"log"
 	"time"
 	"strconv"
@@ -60,11 +59,11 @@ func echo() {
 				log.Printf("websocket error: %s", err)
 				ws.Close()
 				delete(clients, ws)
-				break
+				continue
 			}
 
 
-			if property.status == "matching"{
+			if property.status == "matching" {
 				matchingClient = append(matchingClient, ws)
 			}
 
@@ -147,7 +146,7 @@ var DIRECTION = map[string]Xy {
 	},
 
 	"down": Xy {
-		1, 0,
+		0, 1,
 	},
 
 	"left": Xy {
@@ -184,9 +183,9 @@ func createNowBoardStatusArray() (nowBoardStatusArray [BOARD_SIZE + 2][BOARD_SIZ
 
 func checkNextTurn(gameStatus GameStatus) bool {
 	nextNum := numberCalculation(gameStatus.NowNum + 1)
-	if (gameStatus.IsBlackTurn == true && gameStatus.WhitePieces[nextNum - 1] == 0) {
+	if gameStatus.IsBlackTurn == true && gameStatus.WhitePieces[nextNum - 1] == 0 {
 		return false
-	} else if (gameStatus.IsBlackTurn == false && gameStatus.BlackPieces[nextNum - 1] == 0) {
+	} else if gameStatus.IsBlackTurn == false && gameStatus.BlackPieces[nextNum - 1] == 0 {
 		return false
 	}
 
@@ -194,7 +193,7 @@ func checkNextTurn(gameStatus GameStatus) bool {
 }
 
 func numberCalculation(num int) int {
-	if (num % 5 != 0) {
+	if num % 5 != 0 {
 		return num % 5
 	} else {
 		return 5
@@ -203,20 +202,11 @@ func numberCalculation(num int) int {
 
 func objectCaluculation(pieceCoordinate Xy, direction Xy) Xy {
 	temp := Xy{
-		pieceCoordinate.Y + direction.Y,
-		pieceCoordinate.X + direction.X,
+		X: pieceCoordinate.X + direction.X,
+		Y: pieceCoordinate.Y + direction.Y,
 	}
 
 	return temp
-}
-
-func arrayContains(array []string, value string) bool {
-	for _, arrayValue := range array {
-		if (arrayValue == value) {
-			return true
-		}
-	}
-	return false
 }
 
 func searchEnemyOseroRule(gameStatus GameStatus, pieceCoordinate Xy) []Xy {
@@ -249,7 +239,7 @@ func searchEnemyOseroRule(gameStatus GameStatus, pieceCoordinate Xy) []Xy {
 				searchPieceData = gameStatus.NowBoardStatusArray[searchPosition.Y][searchPosition.X]
 			}
 
-			if (gameStatus.NowBoardStatusArray[searchPosition.Y][searchPosition.X] == strconv.Itoa(gameStatus.NowNum)) {
+			if gameStatus.NowBoardStatusArray[searchPosition.Y][searchPosition.X] == strconv.Itoa(gameStatus.NowNum) {
 				canPutPositionOseroRule = append(canPutPositionOseroRule, searchPosition)
 			}
 		}
@@ -257,37 +247,42 @@ func searchEnemyOseroRule(gameStatus GameStatus, pieceCoordinate Xy) []Xy {
 	return canPutPositionOseroRule
 }
 
-func searchBreathingPointEnemyGroup(gameStatus GameStatus, pieceCoordinate Xy, searchedPosition []string, searchingGroup []Xy) bool {
+func searchBreathingPointEnemyGroup(gameStatus GameStatus, pieceCoordinate Xy, searchedPosition *[BOARD_SIZE * BOARD_SIZE]Xy, searchingGroup *[BOARD_SIZE * BOARD_SIZE]Xy) bool {
+	LABEL:
 	for _, v := range DIRECTION {
 		piecePosition := objectCaluculation(pieceCoordinate, v)
 		pieceData := gameStatus.NowBoardStatusArray[piecePosition.Y][piecePosition.X]
-
-		if (pieceData == "space") {
+		
+		if pieceData == "space" {
 			return false
 		}
 		
-		if (pieceData != "outzone" && pieceData != strconv.Itoa(gameStatus.NowNum)) {
-			pieceId := strconv.Itoa(piecePosition.Y) + "-" + strconv.Itoa(piecePosition.X)
-
-			if (arrayContains(searchedPosition, pieceId)) {
-				continue
+		if pieceData != "outzone" && pieceData != strconv.Itoa(gameStatus.NowNum) {	
+			for i, arrayValue := range searchedPosition {
+				if (arrayValue.X == piecePosition.X) && (arrayValue.Y == piecePosition.Y) {	
+					continue LABEL
+				} else if (arrayValue.X == 0) && (arrayValue.Y == 0) {
+					searchedPosition[i] = piecePosition
+					break
+				}
 			}
 
-			searchedPosition = append(searchedPosition, pieceId)
-
-			if (!searchBreathingPointEnemyGroup(gameStatus, piecePosition, searchedPosition, searchingGroup)) {
+			if searchBreathingPointEnemyGroup(gameStatus, piecePosition, searchedPosition, searchingGroup) == false {
 				return false
 			}
 		}
 	}
-	searchingGroup = append(searchingGroup, pieceCoordinate)
+
+	for i, arrayValue := range searchingGroup {
+		if (arrayValue.X == 0) && (arrayValue.Y == 0) {
+			searchingGroup[i] = pieceCoordinate
+			break
+		}
+	}
 	return true
 }
 
-func searchEnemyGoRule(gameStatus GameStatus, pieceCoordinate Xy) (canPutPositionGoRule []Xy) {
-	searchedPosition := []string{}
-	searchingGroup := []Xy{}
-
+func searchEnemyGoRule(gameStatus GameStatus, pieceCoordinate Xy) (canPutPositionGoRule [BOARD_SIZE*BOARD_SIZE]Xy) {
 	for _, v := range DIRECTION {
 		piecePosition := objectCaluculation(pieceCoordinate, v)
 		pieceData := gameStatus.NowBoardStatusArray[piecePosition.Y][piecePosition.X]
@@ -299,10 +294,15 @@ func searchEnemyGoRule(gameStatus GameStatus, pieceCoordinate Xy) (canPutPositio
 			continue
 		}
 
-		searchedPosition = append(searchedPosition, strconv.Itoa(piecePosition.Y) + "-" + strconv.Itoa(piecePosition.X))
+		searchedPosition := [BOARD_SIZE*BOARD_SIZE]Xy{{piecePosition.X, piecePosition.Y}}
+		searchingGroup := [BOARD_SIZE*BOARD_SIZE]Xy{}	
 
-		if (searchBreathingPointEnemyGroup(gameStatus, piecePosition, searchedPosition, searchingGroup)) {
-			canPutPositionGoRule = append(canPutPositionGoRule, searchingGroup...)
+		if searchBreathingPointEnemyGroup(gameStatus, piecePosition, &searchedPosition, &searchingGroup) {
+			for i := 0; i < len(searchingGroup); i++ {
+				if (canPutPositionGoRule[i].X == 0) && (canPutPositionGoRule[i].Y == 0) {
+					canPutPositionGoRule[i] = searchingGroup[i]
+				}
+			}
 		}
 	}
 	return canPutPositionGoRule
@@ -315,8 +315,8 @@ func intAbs(x int) int {
 	return x
 }
 
-
-func takePieceOseroRule(gameStatus GameStatus, pieceCoordinate Xy, nextTurnBoardStatusArray [BOARD_SIZE + 2][BOARD_SIZE + 2]string) ([BOARD_SIZE + 2][BOARD_SIZE + 2]string, [5]int, [5]int) {
+func takePieceOseroRule(gameStatus GameStatus, pieceCoordinate Xy) ([BOARD_SIZE + 2][BOARD_SIZE + 2]string, [5]int, [5]int) {
+	nextTurnBoardStatusArray := gameStatus.NowBoardStatusArray
 	blackPiecesDif := [5]int{0,0,0,0,0}
 	whitePiecesDif := [5]int{0,0,0,0,0}
 	canPutPositionOseroRule := searchEnemyOseroRule(gameStatus, pieceCoordinate)
@@ -324,13 +324,13 @@ func takePieceOseroRule(gameStatus GameStatus, pieceCoordinate Xy, nextTurnBoard
 	for i := 0; i < len(canPutPositionOseroRule); i++ {
 		var yDirection, xDirection int
 		
-		if (canPutPositionOseroRule[i].Y == pieceCoordinate.Y) {
+		if canPutPositionOseroRule[i].Y == pieceCoordinate.Y {
 			yDirection = 0
 		} else {
 			yDirection = (canPutPositionOseroRule[i].Y - pieceCoordinate.Y) / intAbs(canPutPositionOseroRule[i].Y - pieceCoordinate.Y)
 		}
 
-		if (canPutPositionOseroRule[i].X == pieceCoordinate.X) {
+		if canPutPositionOseroRule[i].X == pieceCoordinate.X {
 			xDirection = 0
 		} else {
 			xDirection = (canPutPositionOseroRule[i].X - pieceCoordinate.X) / intAbs(canPutPositionOseroRule[i].X - pieceCoordinate.X)
@@ -344,11 +344,11 @@ func takePieceOseroRule(gameStatus GameStatus, pieceCoordinate Xy, nextTurnBoard
 		for (canPutPositionOseroRule[i] != takePiecePosition) {
 			takePieceNum := nextTurnBoardStatusArray[takePiecePosition.Y][takePiecePosition.X]
 
-			if (strconv.Itoa(gameStatus.NowNum) == takePieceNum) {
+			if strconv.Itoa(gameStatus.NowNum) == takePieceNum {
 				continue
 			}
 
-			if (gameStatus.IsBlackTurn) {
+			if gameStatus.IsBlackTurn {
 				temp, _ := strconv.Atoi(takePieceNum)
 				blackPiecesDif[temp - 1]++
 				nextTurnBoardStatusArray[takePiecePosition.Y][takePiecePosition.X] = "space"
@@ -365,29 +365,30 @@ func takePieceOseroRule(gameStatus GameStatus, pieceCoordinate Xy, nextTurnBoard
 	return nextTurnBoardStatusArray, blackPiecesDif, whitePiecesDif
 }
 
-func takePieceGoRule(gameStatus GameStatus, pieceCoordinate Xy, nextTurnBoardStatusArray [BOARD_SIZE + 2][BOARD_SIZE + 2]string) ([BOARD_SIZE + 2][BOARD_SIZE + 2]string, [5]int, [5]int) {
+func takePieceGoRule(gameStatus GameStatus, pieceCoordinate Xy) ([BOARD_SIZE + 2][BOARD_SIZE + 2]string, [5]int, [5]int) {
+	nextTurnBoardStatusArray := gameStatus.NowBoardStatusArray
 	blackPiecesDif := [5]int{0,0,0,0,0}
 	whitePiecesDif := [5]int{0,0,0,0,0}
 	canPutPositionGoRule := searchEnemyGoRule(gameStatus, pieceCoordinate)
 
 	for i := 0; i < len(canPutPositionGoRule); i++ {
 		piecePosition := Xy{
-			canPutPositionGoRule[i].Y,
 			canPutPositionGoRule[i].X,
+			canPutPositionGoRule[i].Y,
 		}
 
-		if (nextTurnBoardStatusArray[piecePosition.Y][piecePosition.X] == "space") {
+		if piecePosition.X == 0 && piecePosition.Y == 0 {
 			continue
 		}
 
-		if (gameStatus.IsBlackTurn) {
+		if gameStatus.IsBlackTurn {
 			temp, _ := strconv.Atoi(nextTurnBoardStatusArray[piecePosition.Y][piecePosition.X])
 			blackPiecesDif[temp - 1]++
 			nextTurnBoardStatusArray[piecePosition.Y][piecePosition.X] = "space"
 		} else {
 			temp, _ := strconv.Atoi(nextTurnBoardStatusArray[piecePosition.Y][piecePosition.X])
 			whitePiecesDif[temp - 1]++
-			nextTurnBoardStatusArray[piecePosition.X][piecePosition.X] = "space"
+			nextTurnBoardStatusArray[piecePosition.Y][piecePosition.X] = "space"
 		}
 	}
 	return nextTurnBoardStatusArray, blackPiecesDif, whitePiecesDif
@@ -395,15 +396,23 @@ func takePieceGoRule(gameStatus GameStatus, pieceCoordinate Xy, nextTurnBoardSta
 
 func canPutInsertionToArray(gameStatus GameStatus, pieceCoordinate Xy) GameStatus {
 	gameStatus.NowNum = numberCalculation(gameStatus.NowTurn)
+	gameStatus.NowBoardStatusArray[pieceCoordinate.Y][pieceCoordinate.X] = strconv.Itoa(gameStatus.NowNum)
 
-	nextTurnBoardStatusArray := gameStatus.NowBoardStatusArray
-
-	nextTurnBoardStatusArray[pieceCoordinate.Y][pieceCoordinate.X] = strconv.Itoa(gameStatus.NowNum)
-
-	nextTurnBoardStatusArray, oseroRuleBlackPiecesDif, oseroRuleWhitePiecesDif := takePieceOseroRule(gameStatus, pieceCoordinate, nextTurnBoardStatusArray)
-	nextTurnBoardStatusArray, goRuleBlackPiecesDif, goRuleWhitePiecesDif := takePieceGoRule(gameStatus, pieceCoordinate, nextTurnBoardStatusArray)
+	nextTurnBoardStatusArrayOseroRule, oseroRuleBlackPiecesDif, oseroRuleWhitePiecesDif := takePieceOseroRule(gameStatus, pieceCoordinate)
+	nextTurnBoardStatusArrayGoRule, goRuleBlackPiecesDif, goRuleWhitePiecesDif := takePieceGoRule(gameStatus, pieceCoordinate)
 	
-	gameStatus.NowBoardStatusArray = nextTurnBoardStatusArray
+	for y := 0; y < BOARD_SIZE + 1; y++ {
+		for x := 0; x < BOARD_SIZE + 1; x++ {
+			if nextTurnBoardStatusArrayOseroRule[y][x] == "space" {
+				gameStatus.NowBoardStatusArray[y][x] = "space"
+			} else if nextTurnBoardStatusArrayGoRule[y][x] == "space" {
+				gameStatus.NowBoardStatusArray[y][x] = "space"
+			} else {
+				gameStatus.NowBoardStatusArray[y][x] = nextTurnBoardStatusArrayGoRule[y][x]
+				//オセロのを見ても囲碁のを見てもどっちでもいいので短い方
+			}
+		}
+	}
 
 	for i := 0; i < len(oseroRuleBlackPiecesDif); i++ {
 		gameStatus.BlackPieces[i] += oseroRuleBlackPiecesDif[i] + goRuleBlackPiecesDif[i]
@@ -414,7 +423,7 @@ func canPutInsertionToArray(gameStatus GameStatus, pieceCoordinate Xy) GameStatu
 }
 
 func onClickedBoard(gameStatus GameStatus, pieceCoordinate Xy) GameStatus {
-	if (gameStatus.NowBoardStatusArray[pieceCoordinate.Y][pieceCoordinate.X] != "space") {
+	if gameStatus.NowBoardStatusArray[pieceCoordinate.Y][pieceCoordinate.X] != "space" {
 		gameStatus.ErrStatus = "cantPut"
 		return gameStatus
 	}
@@ -422,10 +431,10 @@ func onClickedBoard(gameStatus GameStatus, pieceCoordinate Xy) GameStatus {
 	gameStatus = canPutInsertionToArray(gameStatus, pieceCoordinate)
 
 	gameStatus.Deck[gameStatus.NowNum - 1]--
-	if (gameStatus.Deck[4] == 0) {
+	if gameStatus.Deck[4] == 0 {
 		gameStatus.UseDeck = false
 		
-		if (checkNextTurn(gameStatus) == false) {
+		if checkNextTurn(gameStatus) == false {
 			gameStatus.GameEndFlag = true
 		}
 	}
@@ -437,14 +446,14 @@ func onClickedBoard(gameStatus GameStatus, pieceCoordinate Xy) GameStatus {
 }
 
 func onClickedBoardNoDeck(gameStatus GameStatus, pieceCoordinate Xy) GameStatus {
-	if (gameStatus.NowBoardStatusArray[pieceCoordinate.Y][pieceCoordinate.X] != "space") {
+	if gameStatus.NowBoardStatusArray[pieceCoordinate.Y][pieceCoordinate.X] != "space" {
 		gameStatus.ErrStatus = "cantPut"
 		return gameStatus
 	}
 
 	gameStatus = canPutInsertionToArray(gameStatus, pieceCoordinate)
 
-	if (checkNextTurn(gameStatus) == false) {
+	if checkNextTurn(gameStatus) == false {
 		gameStatus.GameEndFlag = true
 	}
 
@@ -470,18 +479,35 @@ func gameProcess(i int) {
 	gameStatus.NowBoardStatusArray = createNowBoardStatusArray()
 
 	for {
-		if (gameStatus.IsBlackTurn == true) {
+		gameStatus.ErrStatus = ""
+
+		if gameStatus.IsBlackTurn == true {
 			var receivePieceCoordinate Xy
 
-			_, receiveMessage, _ := black.ReadMessage()
-			err := json.Unmarshal(receiveMessage, &receivePieceCoordinate)
+			_, receiveMessage, err := black.ReadMessage()
+			
+			if err != nil {
+				gameStatus.ErrStatus = "playerDisconnected"
+				log.Printf("websocket error: %s", err)
+				sendMessage, _ := json.Marshal(gameStatus)
+				white.WriteMessage(websocket.TextMessage, sendMessage)
 
-			if (err != nil) {
+				black.Close()
+				white.Close()
+				delete(clients, black)
+				delete(clients, white)
+				gameRoom = append(gameRoom[:i], gameRoom[i+1:]...)
+				return
+			}
+
+			err = json.Unmarshal(receiveMessage, &receivePieceCoordinate)
+
+			if err != nil {
 				gameStatus.ErrStatus = "wrongStatus"
 				continue
 			}
 
-			if (gameStatus.UseDeck == true) {
+			if gameStatus.UseDeck == true {
 				gameStatus = onClickedBoard(gameStatus, receivePieceCoordinate)
 			} else {
 				gameStatus = onClickedBoardNoDeck(gameStatus, receivePieceCoordinate)
@@ -492,21 +518,41 @@ func gameProcess(i int) {
 			black.WriteMessage(websocket.TextMessage, sendMessage)
 			white.WriteMessage(websocket.TextMessage, sendMessage)
 			
-			if (gameStatus.GameEndFlag == true) {
+			if gameStatus.GameEndFlag == true {
+				black.Close()
+				white.Close()
+				delete(clients, black)
+				delete(clients, white)
+				gameRoom = append(gameRoom[:i], gameRoom[i+1:]...)
 				return
 			}
-		} else {
+		} else {	
 			var receivePieceCoordinate Xy
 
-			_, receiveMessage, _ := white.ReadMessage()
-			err := json.Unmarshal(receiveMessage, &receivePieceCoordinate)
+			_, receiveMessage, err := white.ReadMessage()
 
-			if (err != nil) {
+			if err != nil {
+				gameStatus.ErrStatus = "playerDisconnected"
+				log.Printf("websocket error: %s", err)
+				sendMessage, _ := json.Marshal(gameStatus)
+				black.WriteMessage(websocket.TextMessage, sendMessage)
+
+				black.Close()
+				white.Close()
+				delete(clients, black)
+				delete(clients, white)
+				gameRoom = append(gameRoom[:i], gameRoom[i+1:]...)
+				return
+			}
+
+			err = json.Unmarshal(receiveMessage, &receivePieceCoordinate)
+
+			if err != nil {
 				gameStatus.ErrStatus = "wrongStatus"
 				continue
 			}
 
-			if (gameStatus.UseDeck == true) {
+			if gameStatus.UseDeck == true {
 				gameStatus = onClickedBoard(gameStatus, receivePieceCoordinate)
 			} else {
 				gameStatus = onClickedBoardNoDeck(gameStatus, receivePieceCoordinate)
@@ -517,7 +563,12 @@ func gameProcess(i int) {
 			black.WriteMessage(websocket.TextMessage, sendMessage)
 			white.WriteMessage(websocket.TextMessage, sendMessage)
 			
-			if (gameStatus.GameEndFlag == true) {
+			if gameStatus.GameEndFlag == true {
+				black.Close()
+				white.Close()
+				delete(clients, black)
+				delete(clients, white)
+				gameRoom = append(gameRoom[:i], gameRoom[i+1:]...)
 				return
 			}
 		}
